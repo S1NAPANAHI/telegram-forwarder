@@ -27,22 +27,20 @@ class TelegramMonitor {
 
 This bot monitors channels and forwards messages containing your keywords.
 
-🔗 To get started:
-1. Visit our web interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}
-2. Create an account
-3. Add keywords you want to monitor
-4. Add channels to monitor
-5. Set up destinations for forwarding
+🚀 Open the admin panel to get started with keyword monitoring and channel management!`;
 
-📋 Available commands:
-/start - Show this message
-/help - Get help
-/status - Check your monitoring status
-/webapp - Open web interface
-
-Need help? Contact support!`;
-
-      await this.bot.sendMessage(chatId, welcomeMessage);
+      const webAppUrl = 'https://frontend-service-51uy.onrender.com/webapp';
+      
+      await this.bot.sendMessage(chatId, welcomeMessage, {
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: "🚀 Open Admin Panel",
+              web_app: { url: webAppUrl }
+            }
+          ]]
+        }
+      });
     });
 
     // Handle /help command
@@ -56,15 +54,20 @@ Need help? Contact support!`;
 3. **Channels**: Add Telegram channels to monitor
 4. **Destinations**: Set where to forward matched messages
 
-🌐 Web Interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}
+🚀 Tap the button below to open the admin panel:`;
 
-Commands:
-/start - Welcome message
-/help - This help
-/status - Your monitoring status
-/webapp - Open web interface`;
-
-      await this.bot.sendMessage(chatId, helpMessage);
+      const webAppUrl = 'https://frontend-service-51uy.onrender.com/webapp';
+      
+      await this.bot.sendMessage(chatId, helpMessage, {
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: "🚀 Open Admin Panel",
+              web_app: { url: webAppUrl }
+            }
+          ]]
+        }
+      });
     });
 
     // Handle /status command
@@ -73,7 +76,18 @@ Commands:
       const userId = msg.from.id;
       
       try {
-        await this.bot.sendMessage(chatId, '📊 Bot Status: Active\n\n✅ Telegram monitoring: Enabled\n🌐 Web interface: Available\n\nTo set up monitoring, visit the web interface!');
+        const webAppUrl = 'https://frontend-service-51uy.onrender.com/webapp';
+        
+        await this.bot.sendMessage(chatId, '📊 Bot Status: Active\n\n✅ Telegram monitoring: Enabled\n🌐 Web interface: Available\n\n🚀 Open the admin panel to set up monitoring:', {
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: "🚀 Open Admin Panel",
+                web_app: { url: webAppUrl }
+              }
+            ]]
+          }
+        });
       } catch (error) {
         console.error('Status command error:', error);
         await this.bot.sendMessage(chatId, '❌ Error fetching status. Please try again later.');
@@ -84,11 +98,18 @@ Commands:
     this.bot.onText(/\/webapp/, async (msg) => {
       const chatId = msg.chat.id;
       
-      const webAppUrl = process.env.FRONTEND_URL || 'https://your-frontend-url.com';
+      const webAppUrl = 'https://frontend-service-51uy.onrender.com/webapp';
       
-      await this.bot.sendMessage(chatId, 
-        `🌐 Access Web Interface: ${webAppUrl}`
-      );
+      await this.bot.sendMessage(chatId, '🚀 Access your admin panel:', {
+        reply_markup: {
+          inline_keyboard: [[
+            {
+              text: "🚀 Open Admin Panel",
+              web_app: { url: webAppUrl }
+            }
+          ]]
+        }
+      });
     });
 
     // Handle unknown commands and channel messages
@@ -107,9 +128,20 @@ Commands:
           return;
         }
         
-        // Unknown command
+        // Unknown command - show help with WebApp button
+        const webAppUrl = 'https://frontend-service-51uy.onrender.com/webapp';
+        
         await this.bot.sendMessage(msg.chat.id, 
-          `❓ Unknown command: ${msg.text}\n\nType /help to see available commands.`
+          `❓ Unknown command: ${msg.text}\n\nUse the admin panel to manage your bot:`, {
+            reply_markup: {
+              inline_keyboard: [[
+                {
+                  text: "🚀 Open Admin Panel",
+                  web_app: { url: webAppUrl }
+                }
+              ]]
+            }
+          }
         );
       }
     });
@@ -122,6 +154,22 @@ Commands:
       // Test bot connection
       const botInfo = await this.bot.getMe();
       console.log(`Telegram bot connected: @${botInfo.username}`);
+      
+      // Set a persistent menu button for easy access to the web interface
+      try {
+        await this.bot.setChatMenuButton({
+          menu_button: {
+            type: 'web_app',
+            text: 'Open Panel',
+            web_app: {
+              url: 'https://frontend-service-51uy.onrender.com/webapp'
+            }
+          }
+        });
+        console.log('WebApp menu button set successfully');
+      } catch (error) {
+        console.error('Failed to set menu button:', error);
+      }
       
       // Get active channels (with error handling)
       let channels = [];
