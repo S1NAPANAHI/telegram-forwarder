@@ -3,6 +3,7 @@ import type { AppProps } from 'next/app';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../context/AuthContext';
 import { appWithTranslation } from 'next-i18next';
+import i18nextConfig from '../next-i18next.config';
 import axios from 'axios';
 import { useEffect } from 'react';
 
@@ -36,4 +37,4 @@ function MyApp({ Component, pageProps, router }: AppProps) {
   );
 }
 
-export default appWithTranslation(MyApp);
+export default appWithTranslation(MyApp, i18nextConfig);
