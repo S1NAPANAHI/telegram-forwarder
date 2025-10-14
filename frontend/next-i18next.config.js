@@ -1,7 +1,7 @@
-{
-  "locales": ["fa", "en"],
-  "defaultLocale": "fa",
-  "pages": {
+module.exports = {
+  locales: ["fa", "en"],
+  defaultLocale: "fa",
+  pages: {
     "*": ["common"]
   }
-}
+};
