@@ -2,8 +2,7 @@
 const i18n = {
   locales: ['fa', 'en'],
   defaultLocale: 'fa',
-  // For next-i18next v14/v15 typings, this must be the literal false if present
-  localeDetection: false,
+  // removed localeDetection to satisfy next-i18next UserConfig types
 };
 
 const config = {
@@ -13,7 +12,6 @@ const config = {
   pages: {
     '*': ['common'],
   },
-  // Belongs at top-level for next-i18next, not inside i18n
   reloadOnPrerender: false,
 };
 
