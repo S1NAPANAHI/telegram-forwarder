@@ -83,5 +83,16 @@
   "activeChannels": "کانال‌های فعال",
   "forwardingActivityLast7Days": "فعالیت ارسال (۷ روز گذشته)",
   "forwardedMessages": "پیام‌های ارسال شده",
-  "recentActivity": "فعالیت‌های اخیر"
+  "recentActivity": "فعالیت‌های اخیر",
+  "telegramBot": "ربات تلگرام",
+  "analytics": "آنالیتیکس",
+  "settings": "تنظیمات",
+  "lightMode": "حالت روشن",
+  "darkMode": "حالت تاریک",
+  "user": "کاربر",
+  "logout": "خروج",
+  "keywords": "کلمات کلیدی",
+  "channels": "کانال‌ها",
+  "destinations": "مقاصد",
+  "monitoring": "مانیتورینگ"
 }
