@@ -83,5 +83,16 @@
   "activeChannels": "Active Channels",
   "forwardingActivityLast7Days": "Forwarding Activity (Last 7 Days)",
   "forwardedMessages": "Forwarded Messages",
-  "recentActivity": "Recent Activity"
+  "recentActivity": "Recent Activity",
+  "telegramBot": "Telegram Bot",
+  "analytics": "Analytics",
+  "settings": "Settings",
+  "lightMode": "Light Mode",
+  "darkMode": "Dark Mode",
+  "user": "User",
+  "logout": "Logout",
+  "keywords": "Keywords",
+  "channels": "Channels",
+  "destinations": "Destinations",
+  "monitoring": "Monitoring"
 }
