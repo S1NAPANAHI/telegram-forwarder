@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
+import Layout from '../components/Layout';
 
 interface Destination {
   _id: string;
@@ -78,110 +79,115 @@ export default function Destinations() {
     }
   };
 
-  if (authLoading || !user) return <div>{t('loading')}</div>;
-  if (destinationsLoading) return <div>{t('loadingDestinations')}</div>;
-  if (destinationsError) return <div>{t('errorLoadingDestinations')}{(destinationsError as Error).message}</div>;
+  if (authLoading || !user) return <Layout><div>{t('loading')}</div></Layout>;
+  if (destinationsLoading) return <Layout><div>{t('loadingDestinations')}</div></Layout>;
+  if (destinationsError) return <Layout><div>{t('errorLoadingDestinations')}{(destinationsError as Error).message}</div></Layout>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">{t('destinationManager')}</h1>
-
-      <form onSubmit={handleAddDestination} className="mb-8 p-4 border rounded-lg shadow-sm bg-white">
-        <h2 className="text-xl font-semibold mb-4">{t('addNewDestination')}</h2>
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label htmlFor="destinationName" className="block text-gray-700 text-sm font-bold mb-2">
-              {t('destinationName')}
-            </label>
-            <input
-              type="text"
-              id="destinationName"
-              value={newDestinationName}
-              onChange={(e) => setNewDestinationName(e.target.value)}
-              placeholder={t('destinationNamePlaceholder')}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="destinationChatId" className="block text-gray-700 text-sm font-bold mb-2">
-              {t('chatId')}
-            </label>
-            <input
-              type="text"
-              id="destinationChatId"
-              value={newDestinationChatId}
-              onChange={(e) => setNewDestinationChatId(e.target.value)}
-              placeholder={t('chatIdPlaceholder')}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="destinationPlatform" className="block text-gray-700 text-sm font-bold mb-2">
-              {t('platform')}
-            </label>
-            <select
-              id="destinationPlatform"
-              value={newDestinationPlatform}
-              onChange={(e) => setNewDestinationPlatform(e.target.value as 'telegram' | 'eitaa')}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            >
-              <option value="telegram">{t('telegram')}</option>
-              <option value="eitaa">{t('eitaa')}</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="destinationType" className="block text-gray-700 text-sm font-bold mb-2">
-              {t('type')}
-            </label>
-            <select
-              id="destinationType"
-              value={newDestinationType}
-              onChange={(e) => setNewDestinationType(e.target.value as 'private_chat' | 'group' | 'channel')}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            >
-              <option value="private_chat">{t('privateChat')}</option>
-              <option value="group">{t('group')}</option>
-              <option value="channel">{t('channel')}</option>
-            </select>
-          </div>
+    <Layout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('destinationManager')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('manageDestinationsHelp')}</p>
         </div>
-        <button
-          type="submit"
-          disabled={addDestinationMutation.isPending}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {addDestinationMutation.isPending ? t('adding') : t('addDestination')}
-        </button>
-      </form>
 
-      <div className="grid gap-4">
-        {destinations?.map((destination) => (
-          <div key={destination._id} className="p-4 border border-gray-200 rounded-lg flex justify-between items-center bg-white shadow-sm">
+        <form onSubmit={handleAddDestination} className="mb-8 p-4 border rounded-lg shadow-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('addNewDestination')}</h2>
+          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <span className="font-semibold">{destination.name}</span>
-              <div className="text-sm text-gray-500">
-                {t(destination.platform)} - {t(destination.type)} ({destination.chatId})
-              </div>
+              <label htmlFor="destinationName" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+                {t('destinationName')}
+              </label>
+              <input
+                type="text"
+                id="destinationName"
+                value={newDestinationName}
+                onChange={(e) => setNewDestinationName(e.target.value)}
+                placeholder={t('destinationNamePlaceholder')}
+                className="shadow appearance-none border rounded w-full py-2 px-3 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 leading-tight focus:outline-none focus:shadow-outline"
+                required
+              />
             </div>
-            <button
-              onClick={() => deleteDestinationMutation.mutate(destination._id)}
-              disabled={deleteDestinationMutation.isPending}
-              className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
-            >
-              {deleteDestinationMutation.isPending ? t('deleting') : t('delete')}
-            </button>
+            <div>
+              <label htmlFor="destinationChatId" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+                {t('chatId')}
+              </label>
+              <input
+                type="text"
+                id="destinationChatId"
+                value={newDestinationChatId}
+                onChange={(e) => setNewDestinationChatId(e.target.value)}
+                placeholder={t('chatIdPlaceholder')}
+                className="shadow appearance-none border rounded w-full py-2 px-3 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 leading-tight focus:outline-none focus:shadow-outline"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="destinationPlatform" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+                {t('platform')}
+              </label>
+              <select
+                id="destinationPlatform"
+                value={newDestinationPlatform}
+                onChange={(e) => setNewDestinationPlatform(e.target.value as 'telegram' | 'eitaa')}
+                className="shadow appearance-none border rounded w-full py-2 px-3 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 leading-tight focus:outline-none focus:shadow-outline"
+              >
+                <option value="telegram">{t('telegram')}</option>
+                <option value="eitaa">{t('eitaa')}</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="destinationType" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+                {t('type')}
+              </label>
+              <select
+                id="destinationType"
+                value={newDestinationType}
+                onChange={(e) => setNewDestinationType(e.target.value as 'private_chat' | 'group' | 'channel')}
+                className="shadow appearance-none border rounded w-full py-2 px-3 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 leading-tight focus:outline-none focus:shadow-outline"
+              >
+                <option value="private_chat">{t('privateChat')}</option>
+                <option value="group">{t('group')}</option>
+                <option value="channel">{t('channel')}</option>
+              </select>
+            </div>
           </div>
-        ))}
+          <button
+            type="submit"
+            disabled={addDestinationMutation.isPending}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+          >
+            {addDestinationMutation.isPending ? t('adding') : t('addDestination')}
+          </button>
+        </form>
+
+        <div className="grid gap-4">
+          {destinations?.map((destination) => (
+            <div key={destination._id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg flex justify-between items-center bg-white dark:bg-gray-800 shadow-sm">
+              <div>
+                <span className="font-semibold text-gray-900 dark:text-white">{destination.name}</span>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {t(destination.platform)} - {t(destination.type)} ({destination.chatId})
+                </div>
+              </div>
+              <button
+                onClick={() => deleteDestinationMutation.mutate(destination._id)}
+                disabled={deleteDestinationMutation.isPending}
+                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50"
+              >
+                {deleteDestinationMutation.isPending ? t('deleting') : t('delete')}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => ({
   props: {
-    ...(await serverSideTranslations(locale ?? 'en', ['common'])),
+    ...(await serverSideTranslations(locale || 'fa', ['common'])),
   },
 });
