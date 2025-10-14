@@ -2,9 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
+import Layout from '../components/Layout';
 
 interface MonitoredChannel {
   channelId: string;
@@ -45,67 +46,79 @@ export default function Monitoring() {
     },
   });
 
-  if (authLoading || !user) return <div>{t('loading')}</div>;
-  if (isLoading) return <div>{t('loadingMonitoringStatus')}</div>;
-  if (error) return <div>{t('errorLoadingMonitoringStatus')}{(error as Error).message}</div>;
+  if (authLoading || !user) return <Layout><div>{t('loading')}</div></Layout>;
+  if (isLoading) return <Layout><div>{t('loadingMonitoringStatus')}</div></Layout>;
+  if (error) return <Layout><div>{t('errorLoadingMonitoringStatus')}{(error as Error).message}</div></Layout>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">{t('monitoringControl')}</h1>
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full leading-normal">
-          <thead>
-            <tr>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {t('channelId')}
-              </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {t('status')}
-              </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {t('actions')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {channels?.map((channel) => (
-              <tr key={channel.channelId}>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{channel.channelId}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <span
-                    className={`relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight`}
-                  >
-                    <span
-                      aria-hidden
-                      className={`absolute inset-0 ${channel.status === 'active' ? 'bg-green-200' : 'bg-red-200'} opacity-50 rounded-full`}
-                    ></span>
-                    <span className="relative">{t(channel.status)}</span>
-                  </span>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <button 
-                    onClick={() => startMutation.mutate(channel.channelId)} 
-                    disabled={channel.status === 'active' || startMutation.isPending}
-                    className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2 disabled:opacity-50"
-                  >
-                    {t('start')}
-                  </button>
-                  <button 
-                    onClick={() => stopMutation.mutate(channel.channelId)} 
-                    disabled={channel.status !== 'active' || stopMutation.isPending}
-                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
-                  >
-                    {t('stop')}
-                  </button>
-                </td>
+    <Layout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('monitoringControl')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            {t('controlChannelMonitoring')}
+          </p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('channelId')}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('status')}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('actions')}
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {channels?.map((channel) => (
+                <tr key={channel.channelId}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    {channel.channelId}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      channel.status === 'active' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+                    }`}>
+                      {t(channel.status)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                    <button 
+                      onClick={() => startMutation.mutate(channel.channelId)} 
+                      disabled={channel.status === 'active' || startMutation.isPending}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {t('start')}
+                    </button>
+                    <button 
+                      onClick={() => stopMutation.mutate(channel.channelId)} 
+                      disabled={channel.status !== 'active' || stopMutation.isPending}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {t('stop')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!channels?.length && (
+                <tr>
+                  <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {t('noChannelsFound')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
 
