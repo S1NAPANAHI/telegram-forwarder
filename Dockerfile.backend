@@ -1,6 +1,9 @@
 # Dockerfile.backend
 FROM node:18-alpine
 
+# Install Chromium and its dependencies
+RUN apk add --no-cache chromium nss freetype freetype-dev harfbuzz ca-certificates ttf-freefont
+
 WORKDIR /app/backend
 
 # Copy package files
