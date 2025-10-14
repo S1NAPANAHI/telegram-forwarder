@@ -2,9 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
+import Layout from '../components/Layout';
 
 interface Log {
   _id: string;
@@ -33,61 +34,61 @@ export default function Logs() {
     enabled: !!user,
   });
 
-  if (authLoading || !user) return <div>{t('loading')}</div>;
-  if (isLoading) return <div>{t('loadingLogs')}</div>;
-  if (error) return <div>{t('errorLoadingLogs')}{(error as Error).message}</div>;
+  if (authLoading || !user) return <Layout><div>{t('loading')}</div></Layout>;
+  if (isLoading) return <Layout><div>{t('loadingLogs')}</div></Layout>;
+  if (error) return <Layout><div>{t('errorLoadingLogs')}{(error as Error).message}</div></Layout>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">{t('logs')}</h1>
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full leading-normal">
-          <thead>
-            <tr>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {t('message')}
-              </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {t('status')}
-              </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                {t('timestamp')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs?.map((log) => (
-              <tr key={log._id}>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{log.message}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <span
-                    className={`relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight`}
-                  >
-                    <span
-                      aria-hidden
-                      className={`absolute inset-0 ${log.status === 'success' ? 'bg-green-200' : log.status === 'failed' ? 'bg-red-200' : 'bg-yellow-200'} opacity-50 rounded-full`}
-                    ></span>
-                    <span className="relative">{t(log.status)}</span>
-                  </span>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </p>
-                </td>
+    <Layout>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('logs')}</h1>
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('message')}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('status')}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('timestamp')}
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {logs?.map((log) => (
+                <tr key={log._id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {log.message}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      log.status === 'success' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                        : log.status === 'failed'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300'
+                    }`}>
+                      {t(log.status)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => ({
   props: {
-    ...(await serverSideTranslations(locale ?? 'en', ['common'])),
+    ...(await serverSideTranslations(locale || 'fa', ['common'])),
   },
 });
