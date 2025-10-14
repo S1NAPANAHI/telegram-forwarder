@@ -17,7 +17,7 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
 } from '@heroicons/react/24/outline';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import Link from 'next/link';
 import { useAuth, useUserProfile } from '../context/AuthContext';
 import { Menu, Transition } from '@headlessui/react';
@@ -49,10 +49,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navigation: MenuItem[] = [
     { name: t('dashboard'), href: '/dashboard', icon: HomeIcon },
-    { name: t('keywords'), href: '/keywords', icon: KeyIcon },
-    { name: t('channels'), href: '/channels', icon: ChatBubbleLeftRightIcon },
-    { name: t('destinations'), href: '/destinations', icon: PaperAirplaneIcon },
-    { name: t('monitoring'), href: '/monitoring', icon: ChartBarIcon },
+    { name: t('keywordManager'), href: '/keywords', icon: KeyIcon },
+    { name: t('channelManager'), href: '/channels', icon: ChatBubbleLeftRightIcon },
+    { name: t('destinationManager'), href: '/destinations', icon: PaperAirplaneIcon },
+    { name: t('monitoringControl'), href: '/monitoring', icon: ChartBarIcon },
     { name: t('logs'), href: '/logs', icon: DocumentTextIcon },
     { name: t('analytics'), href: '/analytics', icon: ChartBarIcon },
     { name: t('settings'), href: '/settings', icon: CogIcon },
@@ -113,7 +113,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700">
             <div className="flex items-center justify-between h-16 px-4 lg:px-6">
               <div className="flex items-center">
-                <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-5 00 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                   <Bars3Icon className="h-6 w-6" />
                 </button>
                 <div className="ml-4 lg:ml-0">
@@ -122,7 +122,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     {router.pathname !== '/dashboard' && (<>
                       <span className="text-sm text-gray-400">/</span>
                       <span className="text-sm text-gray-900 dark:text-white capitalize">{router.pathname.replace('/', '')}</span>
-                    </>)}
+                    </>
+                    )}
                   </nav>
                 </div>
               </div>
@@ -149,9 +150,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         </div>
                       )}
                       <div className="hidden md:block text-left">
-                        <p className="text-sm font-medium">{userProfile?.displayName || 'User'}</p>
+                        <p className="text-sm font-medium">{userProfile?.displayName || t('user')}</p>
                         {userProfile?.isTelegramUser && (
-                          <p className="text-xs text-blue-600 dark:text-blue-400">Telegram</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">{t('telegram')}</p>
                         )}
                       </div>
                       <ChevronDownIcon className="hidden md:block h-4 w-4" />
@@ -159,13 +160,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <Transition as={Fragment} enter="transition ease-out duration-100" enterFrom="transform opacity-0 scale-95" enterTo="transform opacity-100 scale-100" leave="transition ease-in duration-75" leaveFrom="transform opacity-100 scale-100" leaveTo="transform opacity-0 scale-95">
                       <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                         <div className="p-3 border-b dark:border-gray-700">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{userProfile?.displayName || 'User'}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{userProfile?.displayName || t('user')}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">{userProfile?.email}</p>
                         </div>
                         <div className="py-1">
                           <Menu.Item>{({ active }) => (
                             <button onClick={handleLogout} className={`${active ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'text-gray-700 dark:text-gray-300'} group flex items-center w-full px-3 py-2 text-sm transition-colors`}>
-                              <ArrowRightOnRectangleIcon className="mr-2 h-4 w-4" /> Logout
+                              <ArrowRightOnRectangleIcon className="mr-2 h-4 w-4" /> {t('logout')}
                             </button>
                           )}</Menu.Item>
                         </div>
