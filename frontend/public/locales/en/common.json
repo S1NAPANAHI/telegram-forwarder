@@ -104,5 +104,18 @@
   "viewAllLogs": "View All Logs",
   "addNewKeyword": "Add New Keyword",
   "cancel": "Cancel",
-  "forwarded": "Forwarded"
+  "forwarded": "Forwarded",
+  "manageKeywordsTrigger": "Manage keywords that trigger message forwarding",
+  "activeKeywords": "Active Keywords",
+  "inactiveKeywords": "Inactive Keywords",
+  "matchesToday": "Matches Today",
+  "totalMatches": "Total Matches",
+  "today": "Today",
+  "created": "Created",
+  "editKeyword": "Edit Keyword",
+  "deleteKeyword": "Delete Keyword",
+  "activeStart": "Active (start monitoring immediately)",
+  "saving": "Saving...",
+  "updateKeyword": "Update Keyword",
+  "default": "Default"
 }
