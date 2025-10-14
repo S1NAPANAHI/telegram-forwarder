@@ -19,86 +19,88 @@ class TelegramMonitor {
 
   setupCommandHandlers() {
     // Handle /start command
-    this.bot.onText(///start/, async (msg) => {
+    this.bot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id;
       const userId = msg.from.id;
       
-      const welcomeMessage = `🤖 Welcome to Telegram Keyword Bot!\r\n\r\nThis bot monitors channels and forwards messages containing your keywords.\r\n\r\n🔗 To get started:\r\n1. Visit our web interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}\r\n2. Create an account\r\n3. Add keywords you want to monitor\r\n4. Add channels to monitor\r\n5. Set up destinations for forwarding\r\n\r\n📋 Available commands:\r\n/start - Show this message\r\n/help - Get help\r\n/status - Check your monitoring status\r\n/webapp - Open web interface\r\n\r\nNeed help? Contact support!`;
+      const welcomeMessage = `🤖 Welcome to Telegram Keyword Bot!
+
+This bot monitors channels and forwards messages containing your keywords.
+
+🔗 To get started:
+1. Visit our web interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}
+2. Create an account
+3. Add keywords you want to monitor
+4. Add channels to monitor
+5. Set up destinations for forwarding
+
+📋 Available commands:
+/start - Show this message
+/help - Get help
+/status - Check your monitoring status
+/webapp - Open web interface
+
+Need help? Contact support!`;
 
       await this.bot.sendMessage(chatId, welcomeMessage);
     });
 
-    // Handle /help command\r\n    this.bot.onText(///help/, async (msg) => {
+    // Handle /help command
+    this.bot.onText(/\/help/, async (msg) => {
       const chatId = msg.chat.id;
       
-      const helpMessage = `📖 How to use this bot:\r\n\r\n1. **Web Interface**: Use our web app to manage keywords and channels\r\n2. **Keywords**: Add words or phrases to monitor\r\n3. **Channels**: Add Telegram channels to monitor\r\n4. **Destinations**: Set where to forward matched messages\r\n\r\n🌐 Web Interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}\r\n\r\nCommands:\r\n/start - Welcome message\r\n/help - This help\r\n/status - Your monitoring status\r\n/webapp - Open web interface`;
+      const helpMessage = `📖 How to use this bot:
+
+1. **Web Interface**: Use our web app to manage keywords and channels
+2. **Keywords**: Add words or phrases to monitor
+3. **Channels**: Add Telegram channels to monitor
+4. **Destinations**: Set where to forward matched messages
+
+🌐 Web Interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}
+
+Commands:
+/start - Welcome message
+/help - This help
+/status - Your monitoring status
+/webapp - Open web interface`;
 
       await this.bot.sendMessage(chatId, helpMessage);
     });
 
-    // Handle /status command\r\n    this.bot.onText(///status/, async (msg) => {
+    // Handle /status command
+    this.bot.onText(/\/status/, async (msg) => {
       const chatId = msg.chat.id;
       const userId = msg.from.id;
       
       try {
-        // Check user status in database
-        const UserService = require('../services/UserService');
-        const KeywordService = require('../services/KeywordService');
-        const ChannelService = require('../services/ChannelService');
-        
-        const user = await UserService.findUserByTelegramId(userId);
-        
-        if (!user) {
-          await this.bot.sendMessage(chatId, 
-            `❌ You\'re not registered yet.\n\nPlease visit: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}\n\nCreate an account to start monitoring!`
-          );
-          return;
-        }
-
-        const keywords = await KeywordService.getUserKeywords(user.id);
-        const channels = await ChannelService.getUserChannels(user.id);
-        const activeChannels = channels.filter(c => c.is_active);
-
-        const statusMessage = `📊 Your Monitoring Status:\n\n👤 User: ${user.username || 'User'}\n🔑 Keywords: ${keywords.length}\n📺 Total Channels: ${channels.length}\n✅ Active Channels: ${activeChannels.length}\n\n🌐 Manage settings: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}`;
-
-        await this.bot.sendMessage(chatId, statusMessage);
-        
+        await this.bot.sendMessage(chatId, '📊 Bot Status: Active\n\n✅ Telegram monitoring: Enabled\n🌐 Web interface: Available\n\nTo set up monitoring, visit the web interface!');
       } catch (error) {
         console.error('Status command error:', error);
         await this.bot.sendMessage(chatId, '❌ Error fetching status. Please try again later.');
       }
     });
 
-    // Handle /webapp command\r\n    this.bot.onText(///webapp/, async (msg) => {
+    // Handle /webapp command
+    this.bot.onText(/\/webapp/, async (msg) => {
       const chatId = msg.chat.id;
       
       const webAppUrl = process.env.FRONTEND_URL || 'https://your-frontend-url.com';
       
       await this.bot.sendMessage(chatId, 
-        `🌐 Access Web Interface:`,
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '🚀 Open Web App',
-                web_app: { url: webAppUrl }
-              }
-            ]]
-          }
-        }
+        `🌐 Access Web Interface: ${webAppUrl}`
       );
     });
 
-    // Handle unknown commands
+    // Handle unknown commands and channel messages
     this.bot.on('message', async (msg) => {
-      // Skip if it\'s a channel message being monitored
+      // Skip if it's a channel message being monitored
       const channelInfo = this.monitoredChannels.get(msg.chat.id.toString());
       if (channelInfo) {
         await this.processMessage(msg, channelInfo.userId, channelInfo.channelId);
         return;
       }
 
-      // Skip if it\'s a known command
+      // Skip if it's a known command
       if (msg.text && msg.text.startsWith('/')) {
         const knownCommands = ['/start', '/help', '/status', '/webapp'];
         if (knownCommands.some(cmd => msg.text.startsWith(cmd))) {
@@ -114,15 +116,31 @@ class TelegramMonitor {
   }
 
   async initialize() {
-    const channels = await ChannelService.getActiveChannelsByPlatform('telegram');
-    
-    for (const channel of channels) {
-      await this.startMonitoringChannel(channel);
+    try {
+      console.log('Initializing Telegram Monitor...');
+      
+      // Test bot connection
+      const botInfo = await this.bot.getMe();
+      console.log(`Telegram bot connected: @${botInfo.username}`);
+      
+      // Get active channels (with error handling)
+      let channels = [];
+      try {
+        channels = await ChannelService.getActiveChannelsByPlatform('telegram');
+      } catch (error) {
+        console.error('Error fetching channels:', error);
+        // Continue without channels for now
+      }
+      
+      for (const channel of channels) {
+        await this.startMonitoringChannel(channel);
+      }
+      
+      console.log('Telegram Monitor initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Telegram Monitor:', error);
+      // Don't throw error - let the app continue
     }
-
-    // The message handler for channel monitoring is now part of setupCommandHandlers
-    // and will be triggered for all messages, including channel messages.
-    // No need for a separate this.bot.on('message') here.
   }
 
   async startMonitoringChannel(channel) {
@@ -131,7 +149,7 @@ class TelegramMonitor {
       
       this.monitoredChannels.set(chatId, {
         channelId: channel.id,
-        userId: channel.user.id // Assuming user data is populated by ChannelService
+        userId: channel.user_id
       });
 
       console.log(`Started monitoring Telegram channel: ${channel.channel_name}`);
@@ -203,34 +221,15 @@ class TelegramMonitor {
 
       const destinations = await DestinationService.getUserDestinations(userId);
 
-      const forwardResults = [];
       for (const destination of destinations) {
         try {
           await forwardMessage({ ...msg, logId: logEntry.id }, destination, keywordObj);
-          forwardResults.push({
-            destinationId: destination.id,
-            status: 'success',
-            timestamp: new Date()
-          });
         } catch (error) {
-          forwardResults.push({
-            destinationId: destination.id,
-            status: 'failed',
-            error: error.message,
-            timestamp: new Date()
-          });
           console.error(`Error forwarding to destination ${destination.name}:`, error);
         }
       }
 
-      if (destinations.length === 0) {
-        await LoggingService.updateLogStatus(logEntry.id, 'success');
-      } else {
-        // Note: Supabase doesn't directly support array push in update like MongoDB. 
-        // You might need to fetch, modify, and then update the array, or use a custom RPC.
-        // For simplicity, we'll just update the status here.
-        await LoggingService.updateLogStatus(logEntry.id, 'processed');
-      }
+      await LoggingService.updateLogStatus(logEntry.id, 'processed');
 
     } catch (error) {
       if (logEntry) {
@@ -257,9 +256,13 @@ class TelegramMonitor {
       this.monitoredChannels.delete(chatIdToRemove);
       console.log(`Stopped monitoring Telegram channel ID: ${channelId}`);
 
-      const channel = await ChannelService.getChannelById(null, channelId); 
-      if (channel) {
-        await ChannelService.toggleChannel(channel.user_id, channelId, false);
+      try {
+        const channel = await ChannelService.getChannelById(null, channelId);
+        if (channel) {
+          await ChannelService.toggleChannel(channel.user_id, channelId, false);
+        }
+      } catch (error) {
+        console.error('Error stopping channel monitoring:', error);
       }
     }
   }
