@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
-import i18nextConfig from '../next-i18next.config';
 
 export default function Login() {
   const { t } = useTranslation('common');
@@ -20,9 +19,8 @@ export default function Login() {
 
     try {
       const res = await axios.post('/api/auth/login', { email, password });
-      // Assuming the backend returns a token
       localStorage.setItem('token', res.data.token);
-      router.push('/dashboard'); // Redirect to dashboard on successful login
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.msg || t('loginFailed'));
     }
@@ -81,7 +79,7 @@ export const getStaticProps: GetStaticProps = async ({ locale }) => {
   const lng = locale || 'fa';
   return {
     props: {
-      ...(await serverSideTranslations(lng, ['common'], i18nextConfig)),
+      ...(await serverSideTranslations(lng, ['common'])),
     },
   };
 };
