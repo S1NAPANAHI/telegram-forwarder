@@ -18,7 +18,6 @@ import {
 import Layout from '../components/Layout';
 import DataTable from '../components/DataTable';
 import StatCard from '../components/StatCard';
-import i18nextConfig from '../next-i18next.config';
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -431,10 +430,9 @@ export default Keywords;
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => {
   const lng = locale || 'fa';
-  const translations = await serverSideTranslations(lng, ['common'], i18nextConfig);
   return {
     props: {
-      ...translations,
+      ...(await serverSideTranslations(lng, ['common'])),
     },
   };
 };
