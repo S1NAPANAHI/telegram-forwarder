@@ -117,5 +117,7 @@
   "activeStart": "Active (start monitoring immediately)",
   "saving": "Saving...",
   "updateKeyword": "Update Keyword",
-  "default": "Default"
+  "default": "Default",
+  "controlChannelMonitoring": "Control channel monitoring status",
+  "noChannelsFound": "No channels found"
 }
