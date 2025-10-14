@@ -94,5 +94,15 @@
   "keywords": "Keywords",
   "channels": "Channels",
   "destinations": "Destinations",
-  "monitoring": "Monitoring"
+  "monitoring": "Monitoring",
+  "keyword": "Keyword",
+  "welcomeBack": "Welcome back! Here's what's happening with your bot today.",
+  "successRate": "Success Rate",
+  "viewDetails": "View Details",
+  "topKeywords": "Top Keywords",
+  "matches": "matches",
+  "viewAllLogs": "View All Logs",
+  "addNewKeyword": "Add New Keyword",
+  "cancel": "Cancel",
+  "forwarded": "Forwarded"
 }
