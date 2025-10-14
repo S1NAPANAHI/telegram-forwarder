@@ -5,7 +5,6 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'react-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
-import i18nextConfig from '../next-i18next.config';
 
 interface MonitoredChannel {
   channelId: string;
@@ -114,7 +113,7 @@ export const getStaticProps: GetStaticProps = async ({ locale }) => {
   const lng = locale || 'fa';
   return {
     props: {
-      ...(await serverSideTranslations(lng, ['common'], i18nextConfig)),
+      ...(await serverSideTranslations(lng, ['common'])),
     },
   };
 };
