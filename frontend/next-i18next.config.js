@@ -2,17 +2,20 @@
 const i18n = {
   locales: ['fa', 'en'],
   defaultLocale: 'fa',
-  localeDetection: true,
-  reloadOnPrerender: false
+  // For next-i18next v14/v15 typings, this must be the literal false if present
+  localeDetection: false,
 };
 
-module.exports = {
+const config = {
   i18n,
-  // Namespaces by page pattern
   ns: ['common'],
   defaultNS: 'common',
   pages: {
-    '*': ['common']
-  }
+    '*': ['common'],
+  },
+  // Belongs at top-level for next-i18next, not inside i18n
+  reloadOnPrerender: false,
 };
-module.exports.default = module.exports;
+
+module.exports = config;
+module.exports.default = config;
