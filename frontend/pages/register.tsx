@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
-import i18nextConfig from '../next-i18next.config';
 
 export default function Register() {
   const { t } = useTranslation('common');
@@ -28,7 +27,7 @@ export default function Register() {
     try {
       const res = await axios.post('/api/auth/register', { email, password });
       setSuccess(t('registrationSuccessful'));
-      router.push('/login'); // Redirect to login page
+      router.push('/login');
     } catch (err: any) {
       setError(err.response?.data?.msg || t('registrationFailed'));
     }
@@ -101,7 +100,7 @@ export const getStaticProps: GetStaticProps = async ({ locale }) => {
   const lng = locale || 'fa';
   return {
     props: {
-      ...(await serverSideTranslations(lng, ['common'], i18nextConfig)),
+      ...(await serverSideTranslations(lng, ['common'])),
     },
   };
 };
