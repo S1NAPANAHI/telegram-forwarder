@@ -104,5 +104,18 @@
   "viewAllLogs": "مشاهده تمام گزارش‌ها",
   "addNewKeyword": "افزودن کلمه کلیدی جدید",
   "cancel": "لغو",
-  "forwarded": "ارسال شده"
+  "forwarded": "ارسال شده",
+  "manageKeywordsTrigger": "مدیریت کلمات کلیدی که ارسال پیام را تریگر می‌کنند",
+  "activeKeywords": "کلمات کلیدی فعال",
+  "inactiveKeywords": "کلمات کلیدی غیرفعال",
+  "matchesToday": "تطابقات امروز",
+  "totalMatches": "کل تطابقات",
+  "today": "امروز",
+  "created": "ایجاد شده",
+  "editKeyword": "ویرایش کلمه کلیدی",
+  "deleteKeyword": "حذف کلمه کلیدی",
+  "activeStart": "فعال (شروع مانیتورینگ فوری)",
+  "saving": "در حال ذخیره...",
+  "updateKeyword": "به‌روزرسانی کلمه کلیدی",
+  "default": "پیش‌فرض"
 }
