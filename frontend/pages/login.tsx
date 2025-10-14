@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
+import i18nextConfig from '../next-i18next.config';
 
 export default function Login() {
   const { t } = useTranslation('common');
@@ -76,8 +77,11 @@ export default function Login() {
   );
 }
 
-export const getStaticProps: GetStaticProps = async ({ locale }) => ({
-  props: {
-    ...(await serverSideTranslations(locale ?? 'en', ['common'])),
-  },
-});
+export const getStaticProps: GetStaticProps = async ({ locale }) => {
+  const lng = locale || 'fa';
+  return {
+    props: {
+      ...(await serverSideTranslations(lng, ['common'], i18nextConfig)),
+    },
+  };
+};
