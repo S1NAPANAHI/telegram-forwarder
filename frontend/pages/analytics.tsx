@@ -24,8 +24,8 @@ import {
 import {
   ChartBarIcon,
   ClockIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   CalendarDaysIcon,
   FunnelIcon,
   DocumentArrowDownIcon,
@@ -178,8 +178,8 @@ const Analytics: React.FC = () => {
       label: 'Trend',
       render: (value: 'up' | 'down' | 'stable') => {
         const config = {
-          up: { icon: TrendingUpIcon, color: 'text-green-600 dark:text-green-400' },
-          down: { icon: TrendingDownIcon, color: 'text-red-600 dark:text-red-400' },
+          up: { icon: ArrowTrendingUpIcon, color: 'text-green-600 dark:text-green-400' },
+          down: { icon: ArrowTrendingDownIcon, color: 'text-red-600 dark:text-red-400' },
           stable: { icon: null, color: 'text-gray-500 dark:text-gray-400' },
         };
         
@@ -309,7 +309,7 @@ const Analytics: React.FC = () => {
           <StatCard
             title="Messages Forwarded"
             value={summaryStats.totalForwards}
-            icon={<TrendingUpIcon className="h-6 w-6" />}
+            icon={<ArrowTrendingUpIcon className="h-6 w-6" />}
             change={{ value: '+12.5%', type: 'increase' }}
             loading={isLoading}
           />
