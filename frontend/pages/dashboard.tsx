@@ -7,6 +7,7 @@ import type { GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { InformationCircleIcon, ChartBarIcon, ClockIcon, KeyIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '../context/AuthContext';
 
 
 const apiClient = axios.create({
@@ -51,12 +52,28 @@ export default function Dashboard() {
   const { t } = useTranslation('common');
   const router = useRouter();
   const { locale } = router;
+  const { user } = useAuth();
 
   const [newKeyword, setNewKeyword] = useState('');
   const queryClient = useQueryClient();
 
   const changeLanguage = (lng: string) => {
     router.push(router.pathname, router.asPath, { locale: lng });
+  };
+
+  const linkTelegramAccount = async () => {
+    try {
+      // This will open Telegram with a deep link to start the bot
+      const botUsername = 'your_bot_username'; // Replace with your actual bot username
+      if (!user?._id) {
+        console.error('User ID not available for Telegram linking.');
+        return;
+      }
+      const telegramUrl = `https://t.me/${botUsername}?start=link_${user._id}`;
+      window.open(telegramUrl, '_blank');
+    } catch (error) {
+      console.error('Error linking Telegram:', error);
+    }
   };
 
   // Fetch keywords
@@ -148,6 +165,11 @@ export default function Dashboard() {
                 <div>
                     <button onClick={() => changeLanguage('en')} disabled={locale === 'en'} className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 mr-2">English</button>
                     <button onClick={() => changeLanguage('fa')} disabled={locale === 'fa'} className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50">فارسی</button>
+                    {user && (
+                      <button onClick={linkTelegramAccount} className="ml-4 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Link Telegram
+                      </button>
+                    )}
                 </div>
             </div>
 

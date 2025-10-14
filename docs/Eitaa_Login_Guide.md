@@ -1,5 +1,7 @@
 # Eitaa Login Guide
 
+**Important Note:** The Eitaa monitoring functionality relies on a Chrome browser being available in the environment. In production environments (like Render), if Chrome is not detected or fails to initialize, Eitaa monitoring will be automatically disabled to prevent application crashes. Check your backend logs for messages like "Chrome not available in production environment. Disabling Eitaa monitoring." or "Failed to initialize Eitaa monitor." if you encounter issues.
+
 Due to the security measures of the Eitaa platform, the bot cannot fully automate the login process. When you start monitoring an Eitaa channel for the first time, you will need to manually enter a verification code.
 
 ## How it works

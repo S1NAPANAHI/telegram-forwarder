@@ -139,6 +139,46 @@ class UserService {
 
         return data[0];
     }
+
+    async findUserByTelegramId(telegramId) {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('telegram_id', telegramId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                throw new Error(error.message);
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error finding user by Telegram ID:', error);
+            throw error;
+        }
+    }
+
+    async linkTelegramAccount(userId, telegramId, telegramUsername) {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .update({ 
+                    telegram_id: telegramId,
+                    telegram_username: telegramUsername 
+                })
+                .eq('id', userId);
+
+            if (error) {
+                throw new Error(error.message);
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error linking Telegram account:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = new UserService();

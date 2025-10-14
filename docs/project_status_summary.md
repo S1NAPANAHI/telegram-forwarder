@@ -1,6 +1,6 @@
 # Project Status Summary: Telegram Keyword Bot
 
-## Overall Completion Estimate: Approximately 80-90% (Code Implemented)
+## Overall Completion Estimate: Approximately 90-95% (Code Implemented)
 
 This document summarizes the current progress of the Telegram Keyword Bot project, detailing implemented components and outlining the remaining work required to achieve a fully functioning bot.
 
@@ -24,9 +24,9 @@ The following components and features have been implemented according to the `pr
 
 ### Phase 2: Monitoring System
 *   **Telegram Bot Implementation:**
-    *   `TelegramMonitor` class (`backend/bots/telegramBot.js`) implemented and bugs fixed.
+    *   `TelegramMonitor` class (`backend/bots/telegramBot.js`) implemented, including handlers for user commands (`/start`, `/help`, `/status`, `/webapp`) and improved user linking.
 *   **Eitaa Integration:**
-    *   `EitaaMonitor` class (`backend/bots/eitaaBot.js`) implemented and bugs fixed.
+    *   `EitaaMonitor` class (`backend/bots/eitaaBot.js`) implemented with improved robustness, including checks for Chrome availability in production environments.
 *   **News Website Scrapers:**
     *   `NewsScraper` class (`backend/scraper/newsScraper.js`) implemented and bugs fixed.
 
@@ -41,6 +41,8 @@ The following components and features have been implemented according to the `pr
     *   `Dockerfile.backend` and `Dockerfile.frontend` created for containerizing the services.
     *   `docker-compose.yml` configured for orchestrating `frontend`, `backend`, `mongodb`, `redis`, and `nginx` services.
     *   Basic `nginx.conf` for reverse proxying.
+*   **Render Deployment:**
+    *   Comprehensive Render deployment configuration (`render.yaml`, updated `Dockerfile.backend`, environment variables) has been implemented and documented in `Deployment_and_Testing_Guide.md`.
 *   **Environment Configuration:**
     *   A `.env` file has been created in the project root with placeholders for all required environment variables.
 
@@ -61,15 +63,16 @@ The following components and features have been implemented according to the `pr
 While the core functionality is complete, the following steps are required to deploy and run the bot:
 
 1.  **Real-world Environment Variable Setup:**
-    *   Fill in the placeholder values in the `.env` file with your actual credentials for MongoDB, Redis, Telegram, Eitaa, and OpenAI.
-2.  **Eitaa Login:**
-    *   When running the bot for the first time, you will need to manually enter the Eitaa verification code. See the `docs/Eitaa_Login_Guide.md` for more details.
-3.  **Deployment and Orchestration:**
-    *   Build the Docker images using the provided Dockerfiles.
-    *   Deploy the images to a server.
-    *   Run `docker-compose up` to start the application.
-4.  **Testing and Refinement:**
+    *   Fill in the placeholder values in the `.env` file (or Render environment settings) with your actual credentials for Supabase, Telegram, Eitaa, and OpenAI.
+2.  **Run Database Migrations:**
+    *   Apply the necessary database migrations (e.g., `V2__add_telegram_fields_to_users.sql`) to update your Supabase schema.
+3.  **Telegram Bot Webhook Setup:**
+    *   If deploying to a cloud environment, set up the Telegram bot webhook to ensure it receives updates. Refer to `Deployment_and_Testing_Guide.md` for instructions.
+4.  **Deployment and Orchestration:**
+    *   Build the Docker images using the provided Dockerfiles or deploy directly to Render using `render.yaml`.
+    *   Run `docker-compose up` (for Docker) or deploy the service on Render to start the application.
+5.  **Testing and Refinement:**
     *   A sample test file (`backend/test.js`) has been provided as a starting point. Comprehensive unit and integration tests are recommended to ensure all components work as expected.
     *   Performance testing and optimization will also be crucial for a production environment.
-5.  **Persian Stemming (Optional):**
+6.  **Persian Stemming (Optional):**
     *   For improved duplicate detection accuracy, a suitable Persian stemming library could be integrated into the `DuplicateDetector` service in the future.

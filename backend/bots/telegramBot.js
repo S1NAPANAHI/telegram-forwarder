@@ -12,6 +12,105 @@ class TelegramMonitor {
       polling: true
     });
     this.monitoredChannels = new Map();
+    
+    // Add command handlers
+    this.setupCommandHandlers();
+  }
+
+  setupCommandHandlers() {
+    // Handle /start command
+    this.bot.onText(///start/, async (msg) => {
+      const chatId = msg.chat.id;
+      const userId = msg.from.id;
+      
+      const welcomeMessage = `🤖 Welcome to Telegram Keyword Bot!\r\n\r\nThis bot monitors channels and forwards messages containing your keywords.\r\n\r\n🔗 To get started:\r\n1. Visit our web interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}\r\n2. Create an account\r\n3. Add keywords you want to monitor\r\n4. Add channels to monitor\r\n5. Set up destinations for forwarding\r\n\r\n📋 Available commands:\r\n/start - Show this message\r\n/help - Get help\r\n/status - Check your monitoring status\r\n/webapp - Open web interface\r\n\r\nNeed help? Contact support!`;
+
+      await this.bot.sendMessage(chatId, welcomeMessage);
+    });
+
+    // Handle /help command\r\n    this.bot.onText(///help/, async (msg) => {
+      const chatId = msg.chat.id;
+      
+      const helpMessage = `📖 How to use this bot:\r\n\r\n1. **Web Interface**: Use our web app to manage keywords and channels\r\n2. **Keywords**: Add words or phrases to monitor\r\n3. **Channels**: Add Telegram channels to monitor\r\n4. **Destinations**: Set where to forward matched messages\r\n\r\n🌐 Web Interface: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}\r\n\r\nCommands:\r\n/start - Welcome message\r\n/help - This help\r\n/status - Your monitoring status\r\n/webapp - Open web interface`;
+
+      await this.bot.sendMessage(chatId, helpMessage);
+    });
+
+    // Handle /status command\r\n    this.bot.onText(///status/, async (msg) => {
+      const chatId = msg.chat.id;
+      const userId = msg.from.id;
+      
+      try {
+        // Check user status in database
+        const UserService = require('../services/UserService');
+        const KeywordService = require('../services/KeywordService');
+        const ChannelService = require('../services/ChannelService');
+        
+        const user = await UserService.findUserByTelegramId(userId);
+        
+        if (!user) {
+          await this.bot.sendMessage(chatId, 
+            `❌ You\'re not registered yet.\n\nPlease visit: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}\n\nCreate an account to start monitoring!`
+          );
+          return;
+        }
+
+        const keywords = await KeywordService.getUserKeywords(user.id);
+        const channels = await ChannelService.getUserChannels(user.id);
+        const activeChannels = channels.filter(c => c.is_active);
+
+        const statusMessage = `📊 Your Monitoring Status:\n\n👤 User: ${user.username || 'User'}\n🔑 Keywords: ${keywords.length}\n📺 Total Channels: ${channels.length}\n✅ Active Channels: ${activeChannels.length}\n\n🌐 Manage settings: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}`;
+
+        await this.bot.sendMessage(chatId, statusMessage);
+        
+      } catch (error) {
+        console.error('Status command error:', error);
+        await this.bot.sendMessage(chatId, '❌ Error fetching status. Please try again later.');
+      }
+    });
+
+    // Handle /webapp command\r\n    this.bot.onText(///webapp/, async (msg) => {
+      const chatId = msg.chat.id;
+      
+      const webAppUrl = process.env.FRONTEND_URL || 'https://your-frontend-url.com';
+      
+      await this.bot.sendMessage(chatId, 
+        `🌐 Access Web Interface:`,
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: '🚀 Open Web App',
+                web_app: { url: webAppUrl }
+              }
+            ]]
+          }
+        }
+      );
+    });
+
+    // Handle unknown commands
+    this.bot.on('message', async (msg) => {
+      // Skip if it\'s a channel message being monitored
+      const channelInfo = this.monitoredChannels.get(msg.chat.id.toString());
+      if (channelInfo) {
+        await this.processMessage(msg, channelInfo.userId, channelInfo.channelId);
+        return;
+      }
+
+      // Skip if it\'s a known command
+      if (msg.text && msg.text.startsWith('/')) {
+        const knownCommands = ['/start', '/help', '/status', '/webapp'];
+        if (knownCommands.some(cmd => msg.text.startsWith(cmd))) {
+          return;
+        }
+        
+        // Unknown command
+        await this.bot.sendMessage(msg.chat.id, 
+          `❓ Unknown command: ${msg.text}\n\nType /help to see available commands.`
+        );
+      }
+    });
   }
 
   async initialize() {
@@ -21,12 +120,9 @@ class TelegramMonitor {
       await this.startMonitoringChannel(channel);
     }
 
-    this.bot.on('message', async (msg) => {
-      const channelInfo = this.monitoredChannels.get(msg.chat.id.toString());
-      if (channelInfo) {
-        await this.processMessage(msg, channelInfo.userId, channelInfo.channelId);
-      }
-    });
+    // The message handler for channel monitoring is now part of setupCommandHandlers
+    // and will be triggered for all messages, including channel messages.
+    // No need for a separate this.bot.on('message') here.
   }
 
   async startMonitoringChannel(channel) {
