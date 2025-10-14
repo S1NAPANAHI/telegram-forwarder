@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://backend:5000
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/newsmonitor
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your_jwt_secret_key # Placeholder, should be from .env or secret management
+      - TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here # Placeholder
+      - OPENAI_API_KEY=your_openai_api_key # Placeholder
+    depends_on:
+      - mongodb
+      - redis
+
+  mongodb:
+    image: mongo:5
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  mongodb_data:
+  redis_data:

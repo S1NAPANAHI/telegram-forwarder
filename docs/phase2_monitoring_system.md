@@ -1,0 +1,81 @@
+# Phase 2: Monitoring System (Weeks 3-4)
+
+## Step 2.1: Telegram Bot Implementation
+- [x] Initialize TelegramMonitor class
+  - [x] Setup TelegramBot with token and polling
+  - [x] Initialize monitoredChannels map
+- [x] Implement `initialize` method
+  - [x] Load active Telegram channels from database
+  - [x] Start monitoring each channel
+- [x] Implement `startMonitoringChannel` method
+  - [x] Resolve chat ID from channel URL
+  - [x] Store channel info in `monitoredChannels`
+  - [x] Listen for new messages in the channel
+- [x] Implement `processMessage` method
+  - [x] Extract message text
+  - [x] Fetch user's active keywords
+  - [x] Check for keyword matches
+  - [x] Check for duplicates before forwarding
+  - [x] Forward matched messages
+  - [x] Log action (success/failure)
+- [x] Implement `extractMessageText` method
+- [x] Implement `isKeywordMatch` method (case sensitivity, exact match)
+- [x] Implement `forwardMatchedMessage` method
+  - [x] Find user's active destinations
+  - [x] Forward message to each destination
+- [x] Implement `logAction` method
+- [x] Implement `getChannelId` method
+- [x] Implement `resolveChatId` method
+
+## Step 2.2: Eitaa Integration
+- [x] Initialize EitaaMonitor class
+  - [x] Setup Puppeteer with StealthPlugin
+  - [x] Initialize browser and page
+- [x] Implement `initialize` method
+  - [x] Launch Puppeteer browser
+  - [x] Create new page
+  - [x] Set user agent
+- [x] Implement `monitorChannel` method
+  - [x] Check if logged in, if not, call `login`
+  - [x] Navigate to Eitaa channel URL
+  - [x] Start message polling
+- [x] Implement `startMessagePolling` method
+  - [x] Periodically check for new messages
+  - [x] Extract message details (id, text, timestamp)
+  - [x] Process new messages
+- [x] Implement `processNewMessage` method
+  - [x] Fetch user's active keywords
+  - [x] Check for keyword matches
+  - [x] Forward matched messages
+- [x] Implement `login` method
+  - [x] Navigate to login page
+  - [x] Fill phone number
+  - [x] Click submit
+  - [x] (Note: Manual verification code handling needed)
+  - [x] Set `isLoggedIn` to true
+- [x] Implement `isKeywordMatch` method
+
+## Step 2.3: News Website Scrapers
+- [x] Initialize NewsScraper class
+  - [x] Define scrapers for different domains (irna.ir, isna.ir, mehrnews.com)
+- [x] Implement `monitorNewsWebsite` method
+  - [x] Extract domain from channel URL
+  - [x] Call appropriate scraper function
+  - [x] Process new articles
+- [x] Implement `scrapeIRNA` method
+  - [x] Fetch content from IRNA URL
+  - [x] Parse articles (title, link, summary)
+- [x] Implement `scrapeISNA` method
+  - [x] Fetch content from ISNA URL
+  - [x] Parse articles (title, link, content)
+- [x] Implement `processNewArticles` method
+  - [x] Get last checked timestamp to avoid duplicates
+  - [x] Iterate through articles, check if new
+  - [x] Call `checkArticleForKeywords` for new articles
+  - [x] Update `lastChecked` timestamp in database
+- [x] Implement `checkArticleForKeywords` method
+  - [x] Fetch user's active keywords
+  - [x] Combine article title and content
+  - [x] Check for keyword matches
+  - [x] Forward matched articles
+- [x] Implement `isKeywordMatch` method
