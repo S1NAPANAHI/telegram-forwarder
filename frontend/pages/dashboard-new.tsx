@@ -38,7 +38,6 @@ import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import DataTable from '../components/DataTable';
 import { useAuth } from '../context/AuthContext';
-import i18nextConfig from '../next-i18next.config';
 
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -457,10 +456,9 @@ export default Dashboard;
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => {
   const lng = locale || 'fa';
-  const translations = await serverSideTranslations(lng, ['common'], i18nextConfig);
   return {
     props: {
-      ...translations,
+      ...(await serverSideTranslations(lng, ['common'])),
     },
   };
 };
