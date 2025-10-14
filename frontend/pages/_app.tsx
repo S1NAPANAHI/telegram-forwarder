@@ -3,6 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../context/AuthContext'; // Import AuthProvider
 import '../styles/globals.css';
 import { appWithTranslation } from 'next-i18next';
+import axios from 'axios';
+
+// Set the base URL for all axios requests
+if (process.env.NEXT_PUBLIC_API_URL) {
+  axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL;
+}
 
 const queryClient = new QueryClient();
 
