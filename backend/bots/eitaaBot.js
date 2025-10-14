@@ -6,6 +6,7 @@ const ChannelService = require('../services/ChannelService');
 const UserService = require('../services/UserService');
 const { forwardMessage, checkDuplicate } = require('../services/forwardingService');
 const puppeteerConfig = require('../config/puppeteer');
+const fs = require('fs');
 
 puppeteer.use(StealthPlugin());
 
@@ -15,17 +16,53 @@ class EitaaMonitor {
     this.page = null;
     this.isLoggedIn = false;
     this.channelIntervals = new Map();
+    this.isDisabled = false; // Add this to disable Eitaa if Chrome unavailable
   }
 
   async initialize() {
-    this.browser = await puppeteer.launch(puppeteerConfig);
-    
-    this.page = await this.browser.newPage();
-    
-    await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+    try {
+      // Check if Chrome is available
+      if (process.env.NODE_ENV === 'production') {
+        const chromePaths = [
+          '/usr/bin/google-chrome',
+          '/usr/bin/chromium-browser',
+          '/usr/bin/chromium'
+        ];
+        
+        let chromeAvailable = false;
+        for (const path of chromePaths) {
+          if (fs.existsSync(path)) {
+            chromeAvailable = true;
+            break;
+          }
+        }
+        
+        if (!chromeAvailable) {
+          console.log('Chrome not available in production environment. Disabling Eitaa monitoring.');
+          this.isDisabled = true;
+          return;
+        }
+      }
+      
+      this.browser = await puppeteer.launch(puppeteerConfig);
+      this.page = await this.browser.newPage();
+      
+      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      
+      console.log('Eitaa monitor initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Eitaa monitor:', error.message);
+      console.log('Falling back to system Chrome detection');
+      this.isDisabled = true;
+    }
   }
 
   async monitorChannel(channel) {
+    if (this.isDisabled) {
+      console.log(`Eitaa monitoring disabled - skipping channel ${channel.channel_url}`);
+      return;
+    }
+    
     try {
       if (!this.isLoggedIn) {
         await this.login(channel.credentials, channel.user_id);

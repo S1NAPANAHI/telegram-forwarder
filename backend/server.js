@@ -1,3 +1,11 @@
+process.on('uncaughtException', (error) => {
+  if (error.message.includes('Chrome') || error.message.includes('puppeteer')) {
+    console.log('Chrome/Puppeteer error detected - continuing without Eitaa monitoring');
+    return;
+  }
+  throw error;
+});
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

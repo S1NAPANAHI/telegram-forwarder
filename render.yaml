@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: telegram-forwarder-backend
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: |
+      cd backend
+      npm install
+      # Install system dependencies for Puppeteer
+      apt-get update
+      apt-get install -y chromium-browser
+      # Install Chrome browser for Puppeteer
+      npx puppeteer browsers install chrome --path ./chrome-cache
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: false
+      - key: PUPPETEER_CACHE_DIR
+        value: ./chrome-cache
