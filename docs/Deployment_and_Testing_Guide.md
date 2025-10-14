@@ -8,6 +8,7 @@ Before you begin, ensure you have the following installed on your system:
 
 - **Docker:** [Get Docker](https://docs.docker.com/get-docker/)
 - **Docker Compose:** [Install Docker Compose](https://docs.docker.com/compose/install/)
+- **Supabase Project:** Ensure you have a Supabase project set up and the database schema migrated as per the [Migration Guide](./migration_to_supabase.md).
 
 ## 2. Configuration
 
@@ -18,8 +19,12 @@ The application uses a `.env` file for configuration. This file contains sensiti
 2.  **Add the following variables:** Copy the contents of `.env.example` (if it exists) or use the following template and fill in your actual credentials:
 
     ```
-    # Database
-    MONGODB_URI=mongodb://mongodb:27017/newsmonitor
+    # Supabase
+    SUPABASE_URL=your-supabase-project-url
+    SUPABASE_ANON_KEY=your-supabase-anon-key
+    SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+    # Redis
     REDIS_URL=redis://redis:6379
 
     # Telegram
@@ -32,10 +37,6 @@ The application uses a `.env` file for configuration. This file contains sensiti
     # OpenAI
     OPENAI_API_KEY=your_openai_api_key
 
-    # JWT
-    JWT_SECRET=your_jwt_secret_key
-    JWT_EXPIRES_IN=7d
-
     # Server
     PORT=5000
     NODE_ENV=production
@@ -47,7 +48,7 @@ The application uses a `.env` file for configuration. This file contains sensiti
 
 ## 3. Deployment
 
-The application is deployed using Docker Compose, which orchestrates the frontend, backend, database, and other services.
+The application is deployed using Docker Compose, which orchestrates the frontend, backend, Redis, and other services.
 
 1.  **Open a terminal** in the root directory of the project.
 

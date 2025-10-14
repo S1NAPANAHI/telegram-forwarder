@@ -13,7 +13,7 @@ router.post('/', auth, async (req, res) => {
     const newDestination = await DestinationService.addDestination(req.user.id, {
       type,
       platform,
-      chatId,
+      chat_id: chatId,
       name
     });
 

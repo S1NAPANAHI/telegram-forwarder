@@ -1,5 +1,4 @@
-const User = require('../models/User');
-const Channel = require('../models/Channel');
+const supabase = require('../database/supabase');
 const UserService = require('./UserService');
 
 class ChannelService {
@@ -9,60 +8,108 @@ class ChannelService {
             throw new Error('Channel limit reached. Please upgrade your plan.');
         }
 
-        const channel = new Channel({
-            userId,
-            ...channelData
-        });
+        const { data, error } = await supabase
+            .from('channels')
+            .insert([{ user_id: userId, ...channelData }])
+            .select();
 
-        return await channel.save();
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async getUserChannels(userId, activeOnly = true) {
-        const query = { userId };
+        let query = supabase.from('channels').select('*').eq('user_id', userId);
+
         if (activeOnly) {
-            query.isActive = true;
+            query = query.eq('is_active', true);
         }
-        
-        return await Channel.find(query).sort({ createdAt: -1 });
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 
     async getActiveChannelsByPlatform(platform) {
-        return await Channel.find({
-            platform,
-            isActive: true
-        }).populate('userId', 'telegramId subscription');
+        const { data, error } = await supabase
+            .from('channels')
+            .select(`
+                *,
+                user:users ( telegram_id, subscription_plan, keywords_limit, channels_limit )
+            `)
+            .eq('platform', platform)
+            .eq('is_active', true);
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 
     async updateLastChecked(channelId) {
-        return await Channel.findByIdAndUpdate(
-            channelId,
-            { lastChecked: new Date() },
-            { new: true }
-        );
+        const { data, error } = await supabase
+            .from('channels')
+            .update({ last_checked: new Date() })
+            .eq('id', channelId)
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async toggleChannel(userId, channelId, isActive) {
-        return await Channel.findOneAndUpdate(
-            { _id: channelId, userId },
-            { isActive },
-            { new: true }
-        );
+        const { data, error } = await supabase
+            .from('channels')
+            .update({ is_active: isActive })
+            .eq('id', channelId)
+            .eq('user_id', userId)
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async deleteChannel(userId, channelId) {
-        const channel = await Channel.findOneAndDelete({
-            _id: channelId,
-            userId: userId
-        });
-        return channel;
+        const { data, error } = await supabase
+            .from('channels')
+            .delete()
+            .eq('id', channelId)
+            .eq('user_id', userId)
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async getChannelById(userId, channelId) {
-        const channel = await Channel.findOne({
-            _id: channelId,
-            userId: userId
-        });
-        return channel;
+        const { data, error } = await supabase
+            .from('channels')
+            .select('*')
+            .eq('id', channelId)
+            .eq('user_id', userId)
+            .single();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 }
 

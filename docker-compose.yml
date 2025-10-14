@@ -21,21 +21,12 @@ services:
       - "5000:5000"
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/newsmonitor
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=your_jwt_secret_key # Placeholder, should be from .env or secret management
       - TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here # Placeholder
       - OPENAI_API_KEY=your_openai_api_key # Placeholder
     depends_on:
-      - mongodb
       - redis
-
-  mongodb:
-    image: mongo:5
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
 
   redis:
     image: redis:6-alpine
@@ -56,5 +47,4 @@ services:
       - backend
 
 volumes:
-  mongodb_data:
   redis_data:

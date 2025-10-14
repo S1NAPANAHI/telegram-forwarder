@@ -10,8 +10,8 @@ router.post('/', auth, async (req, res) => {
     
     const newKeyword = await KeywordService.addKeyword(req.user.id, {
       keyword,
-      caseSensitive: caseSensitive || false,
-      exactMatch: exactMatch || false
+      case_sensitive: caseSensitive || false,
+      exact_match: exactMatch || false
     });
 
     res.json(newKeyword);

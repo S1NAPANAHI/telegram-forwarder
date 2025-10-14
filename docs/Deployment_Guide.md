@@ -10,10 +10,9 @@ The project consists of several interconnected components:
 *   **`bots/`**: Contains the logic for interacting with Telegram and Eitaa platforms to monitor channels and forward messages.
 *   **`scraper/`**: Modules for scraping news from websites.
 *   **`ai-services/`**: AI-powered filtering and information extraction.
-*   **`database/`**: Mongoose models defining the MongoDB schema.
 *   **`docker-compose.yml` & `Dockerfile`s**: Configuration for containerizing the application.
 
-The database (MongoDB) is hosted separately on MongoDB Atlas.
+The database (PostgreSQL) is hosted separately on Supabase.
 
 ## 2. Local Development Setup
 
@@ -23,7 +22,7 @@ To run the entire application on your local machine:
 
 *   Node.js (v18 or higher) and npm installed.
 *   Git installed.
-*   MongoDB Atlas account with a configured cluster and connection string (as set in your `.env`).
+*   Supabase project with a configured PostgreSQL database (as set in your `.env`).
 *   Telegram Bot Token (from BotFather).
 
 ### 2.2. Clone the Repository
@@ -38,8 +37,12 @@ cd telegram-forwarder-bot
 Create a `.env` file in the project root (`telegram-forwarder-bot/.env`) and populate it with your specific values.
 
 ```dotenv
-# Database
-MONGODB_URI=mongodb+srv://<your_db_username>:<your_db_password>@<your_cluster_name>.mongodb.net/?retryWrites=true&w=majority&appName=<your_app_name>
+# Supabase
+SUPABASE_URL=your-supabase-project-url
+SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+# Redis
 REDIS_URL=redis://localhost:6379 # Or your Redis instance URL
 
 # Telegram
@@ -52,10 +55,6 @@ EITAA_PASSWORD=your_eitaa_password
 # OpenAI
 OPENAI_API_KEY=your_openai_api_key
 
-# JWT
-JWT_SECRET=a_strong_jwt_secret_key
-JWT_EXPIRES_IN=7d
-
 # Server
 PORT=5000
 NODE_ENV=development
@@ -64,7 +63,7 @@ NODE_ENV=development
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
 ```
-**Note:** Your `MONGODB_URI` should already be correctly set if you followed the previous steps.
+**Note:** Your Supabase credentials should already be correctly set if you followed the previous steps.
 
 ### 2.4. Install Dependencies
 
@@ -96,13 +95,13 @@ docker run --name some-redis -p 6379:6379 -d redis
 
 #### 2.5.2. Start the Backend Server
 
-The backend server will connect to MongoDB Atlas and initialize the monitoring manager, which in turn starts the Telegram and Eitaa bots.
+The backend server will initialize the monitoring manager, which in turn starts the Telegram and Eitaa bots.
 
 ```bash
 cd backend
 npm start # Or node server.js if 'start' script is not defined
 ```
-Look for console output indicating "MongoDB Connected" and "Server running on port 5000". Also, messages like "Started monitoring Telegram channel" will confirm bot initialization.
+Look for console output indicating "Server running on port 5000". Also, messages like "Started monitoring Telegram channel" will confirm bot initialization.
 
 #### 2.5.3. Start the Frontend Development Server
 
@@ -117,7 +116,7 @@ This will typically start the frontend on `http://localhost:3000`.
 *   **Frontend:** Open your web browser and navigate to `http://localhost:3000`.
 *   **Backend API:** The API will be available at `http://localhost:5000/api/...`.
 
-## 3. Cloud Deployment with Render (Future Consideration)
+## 3. Cloud Deployment with Render
 
 Render is a cloud platform that allows you to host web services, background workers, and more. Your Docker setup makes deployment to Render straightforward.
 
@@ -147,11 +146,11 @@ You would typically deploy your project to Render using the following services:
 *   **Health Checks:** Configure health checks to ensure your services are running correctly.
 *   **Logging:** Render provides centralized logging for all your services.
 
-## 4. MongoDB Atlas (Database Hosting)
+## 4. Supabase (Database Hosting)
 
-You are already using MongoDB Atlas, which is a fully managed cloud database service. This means:
-*   You don't need to deploy MongoDB yourself.
-*   Atlas handles backups, scaling, and maintenance.
-*   Your application connects to it via the `MONGODB_URI` connection string.
+You are now using Supabase, which provides a fully managed PostgreSQL database. This means:
+*   You don't need to deploy PostgreSQL yourself.
+*   Supabase handles backups, scaling, and maintenance.
+*   Your application connects to it via the `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (for backend operations).
 
 This guide should help you understand the deployment landscape for your project.

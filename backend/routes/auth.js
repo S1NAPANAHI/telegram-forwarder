@@ -1,47 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const auth = require('../middleware/auth'); // Our updated auth middleware
-const User = require('../models/User');
+const supabase = require('../database/supabase');
+const auth = require('../middleware/auth');
 
 // @route   POST /api/auth/register
 // @desc    Register user
 // @access  Public
 router.post('/register', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, username } = req.body;
 
   try {
-    let user = await User.findOne({ email, telegramId: { $exists: false } });
-    if (user) {
-      return res.status(400).json({ msg: 'User already exists' });
-    }
-
-    user = new User({
+    const { data, error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: { username } // Store additional user metadata
+      }
     });
 
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
+    if (error) {
+      console.error('Supabase signUp error:', error.message);
+      return res.status(400).json({ msg: error.message });
+    }
 
-    await user.save();
-
-    const payload = {
-      user: {
-        id: user.id
-      }
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token });
-      }
-    );
+    res.status(201).json({ msg: 'User registered successfully. Check your email for verification.', user: data.user });
 
   } catch (err) {
     console.error(err.message);
@@ -56,31 +38,17 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    let user = await User.findOne({ email, telegramId: { $exists: false } });
-    if (!user) {
-      return res.status(400).json({ msg: 'Invalid Credentials' });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Supabase signIn error:', error.message);
+      return res.status(400).json({ msg: error.message });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid Credentials' });
-    }
-
-    const payload = {
-      user: {
-        id: user.id
-      }
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token });
-      }
-    );
+    res.json({ token: data.session.access_token, user: data.user });
 
   } catch (err) {
     console.error(err.message);
@@ -93,8 +61,18 @@ router.post('/login', async (req, res) => {
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    // req.user.id is set by the auth middleware
-    const user = await User.findById(req.user.id).select('-password');
+    // req.user is set by the auth middleware
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, username, first_name, last_name, language, subscription_plan, keywords_limit, channels_limit, subscription_expires_at, is_active, created_at, last_login')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) {
+      console.error('Supabase user fetch error:', error.message);
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
     res.json(user);
   } catch (err) {
     console.error(err.message);

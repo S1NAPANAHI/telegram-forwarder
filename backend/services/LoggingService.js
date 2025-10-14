@@ -1,115 +1,101 @@
-const mongoose = require('mongoose');
-const MessageLog = require('../models/MessageLog');
+const supabase = require('../database/supabase');
 
 class LoggingService {
-    async logMessageProcessing(messageData) {
-        const {
-            userId,
-            keywordId,
-            channelId,
-            originalMessage,
-            matchedText,
-            forwardedTo = [],
-            status = 'processed'
-        } = messageData;
+    async logMessage(logData) {
+        const { data, error } = await supabase
+            .from('message_logs')
+            .insert([{
+                user_id: logData.userId,
+                keyword_id: logData.keywordId,
+                channel_id: logData.channelId,
+                original_message_id: logData.originalMessageId,
+                original_message_text: logData.originalMessageText,
+                matched_text: logData.matchedText,
+                status: logData.status,
+                processing_time_ms: logData.processingTime
+            }])
+            .select();
 
-        const logEntry = new MessageLog({
-            userId,
-            keywordId,
-            channelId,
-            originalMessage,
-            matchedText,
-            forwardedTo,
-            status,
-            processingTime: messageData.processingTime || 0
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
+    }
+
+    async getLogsForUser(userId, limit = 10, offset = 0) {
+        const { data, error } = await supabase
+            .from('message_logs')
+            .select(`
+                *,
+                keyword:keywords(keyword),
+                channel:channels(channel_name)
+            `)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
+    }
+
+    async getLogsCountForUser(userId) {
+        const { count, error } = await supabase
+            .from('message_logs')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId);
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return count;
+    }
+
+    async getForwardedMessagesToday(userId) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const { count, error } = await supabase
+            .from('message_logs')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('created_at', today.toISOString());
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return count;
+    }
+
+    async getForwardingActivityLast7Days(userId) {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        const { data, error } = await supabase
+            .from('message_logs')
+            .select('created_at')
+            .eq('user_id', userId)
+            .gte('created_at', sevenDaysAgo.toISOString())
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        // Aggregate data by day
+        const activityByDay = {};
+        data.forEach(log => {
+            const date = new Date(log.created_at).toISOString().split('T')[0];
+            activityByDay[date] = (activityByDay[date] || 0) + 1;
         });
 
-        return await logEntry.save();
-    }
-
-    async checkDuplicate(userId, messageId, platform, timeWindow = 3600000) { // 1 hour
-        const timeThreshold = new Date(Date.now() - timeWindow);
-        
-        const duplicate = await MessageLog.findOne({
-            userId,
-            'originalMessage.messageId': messageId,
-            'originalMessage.platform': platform,
-            createdAt: { $gte: timeThreshold }
-        });
-
-        return !!duplicate;
-    }
-
-    async getUserStats(userId, days = 7) {
-        const dateThreshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-        
-        const stats = await MessageLog.aggregate([
-            {
-                $match: {
-                    userId: new mongoose.Types.ObjectId(userId),
-                    createdAt: { $gte: dateThreshold }
-                }
-            },
-            {
-                $group: {
-                    _id: '$status',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        const keywordStats = await MessageLog.aggregate([
-            {
-                $match: {
-                    userId: new mongoose.Types.ObjectId(userId),
-                    createdAt: { $gte: dateThreshold }
-                }
-            },
-            {
-                $group: {
-                    _id: '$keywordId',
-                    count: { $sum: 1 }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'keywords',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'keyword'
-                }
-            }
-        ]);
-
-        return {
-            statusCounts: stats,
-            keywordCounts: keywordStats
-        };
-    }
-
-    async getUserLogs(userId) {
-        const logs = await MessageLog.find({ userId })
-            .sort({ createdAt: -1 }) // Sort by newest first (createdAt is the new timestamp field)
-            .populate('keywordId', 'keyword') // Populate keyword details
-            .populate('channelId', 'channelName platform') // Populate channel details
-            .populate('forwardedTo.destinationId', 'name platform'); // Populate destination details
-        return logs;
-    }
-
-    async getLogById(userId, logId) {
-        const log = await MessageLog.findOne({ _id: logId, userId })
-            .populate('keywordId', 'keyword')
-            .populate('channelId', 'channelName platform')
-            .populate('forwardedTo.destinationId', 'name platform');
-        return log;
-    }
-
-    async updateLogStatus(logId, status) {
-        return await MessageLog.findByIdAndUpdate(logId, { status }, { new: true });
-    }
-
-    async updateLogEntry(logId, updateData) {
-        return await MessageLog.findByIdAndUpdate(logId, updateData, { new: true });
+        return activityByDay;
     }
 }
 

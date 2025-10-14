@@ -12,8 +12,8 @@ router.post('/', auth, async (req, res) => {
 
     const newChannel = await ChannelService.addChannel(req.user.id, {
       platform,
-      channelUrl,
-      channelName,
+      channel_url: channelUrl,
+      channel_name: channelName,
       credentials
     });
 

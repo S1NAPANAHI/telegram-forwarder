@@ -1,24 +1,63 @@
-const BotSession = require('../models/BotSession');
+const supabase = require('../database/supabase');
 
 class BotSessionService {
     async createOrUpdateSession(userId, currentState, context = {}) {
-        return await BotSession.findOneAndUpdate(
-            { userId },
-            { currentState, context, lastInteraction: new Date() },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
+        const { data, error } = await supabase
+            .from('bot_sessions')
+            .upsert({
+                user_id: userId,
+                current_state: currentState,
+                context: context,
+                last_interaction: new Date()
+            }, { onConflict: 'user_id' })
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async getSession(userId) {
-        return await BotSession.findOne({ userId });
+        const { data, error } = await supabase
+            .from('bot_sessions')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116: single row not found
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 
     async clearSession(userId) {
-        return await BotSession.deleteOne({ userId });
+        const { data, error } = await supabase
+            .from('bot_sessions')
+            .delete()
+            .eq('user_id', userId);
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 
     async updateLastInteraction(userId) {
-        return await BotSession.updateOne({ userId }, { lastInteraction: new Date() });
+        const { data, error } = await supabase
+            .from('bot_sessions')
+            .update({ last_interaction: new Date() })
+            .eq('user_id', userId)
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 }
 

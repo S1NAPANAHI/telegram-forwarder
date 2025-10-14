@@ -1,5 +1,4 @@
-const User = require('../models/User');
-const Keyword = require('../models/Keyword');
+const supabase = require('../database/supabase');
 const UserService = require('./UserService');
 
 class KeywordService {
@@ -9,37 +8,57 @@ class KeywordService {
             throw new Error('Keyword limit reached. Please upgrade your plan.');
         }
 
-        const keyword = new Keyword({
-            userId,
-            ...keywordData
-        });
+        const { data, error } = await supabase
+            .from('keywords')
+            .insert([{ user_id: userId, ...keywordData }])
+            .select();
 
-        return await keyword.save();
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async getUserKeywords(userId, activeOnly = true) {
-        const query = { userId };
+        let query = supabase.from('keywords').select('*').eq('user_id', userId);
+
         if (activeOnly) {
-            query.isActive = true;
+            query = query.eq('is_active', true);
         }
-        
-        return await Keyword.find(query).sort({ createdAt: -1 });
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 
     async toggleKeyword(userId, keywordId, isActive) {
-        return await Keyword.findOneAndUpdate(
-            { _id: keywordId, userId },
-            { isActive },
-            { new: true }
-        );
+        const { data, error } = await supabase
+            .from('keywords')
+            .update({ is_active: isActive })
+            .eq('id', keywordId)
+            .eq('user_id', userId)
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async incrementMatchCount(keywordId) {
-        return await Keyword.findByIdAndUpdate(
-            keywordId,
-            { $inc: { matchCount: 1 } },
-            { new: true }
-        );
+        const { data, error } = await supabase.rpc('increment_match_count', { keyword_id: keywordId });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 
     async findMatchingKeywords(userId, text) {
@@ -55,16 +74,16 @@ class KeywordService {
         return matches;
     }
 
-    async doesTextMatchKeyword(text, keyword) {
+    doesTextMatchKeyword(text, keyword) {
         let searchText = text;
         let searchKeyword = keyword.keyword;
 
-        if (!keyword.caseSensitive) {
+        if (!keyword.case_sensitive) {
             searchText = searchText.toLowerCase();
             searchKeyword = searchKeyword.toLowerCase();
         }
 
-        if (keyword.exactMatch) {
+        if (keyword.exact_match) {
             return searchText === searchKeyword;
         } else {
             return searchText.includes(searchKeyword);
@@ -72,11 +91,18 @@ class KeywordService {
     }
 
     async deleteKeyword(userId, keywordId) {
-        const keyword = await Keyword.findOneAndDelete({
-            _id: keywordId,
-            userId: userId
-        });
-        return keyword;
+        const { data, error } = await supabase
+            .from('keywords')
+            .delete()
+            .eq('id', keywordId)
+            .eq('user_id', userId)
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 }
 

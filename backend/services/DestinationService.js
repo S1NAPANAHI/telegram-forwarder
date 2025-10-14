@@ -1,28 +1,48 @@
-const Destination = require('../models/Destination');
+const supabase = require('../database/supabase');
 
 class DestinationService {
     async addDestination(userId, destinationData) {
-        const destination = new Destination({
-            userId,
-            ...destinationData
-        });
-        return await destination.save();
+        const { data, error } = await supabase
+            .from('destinations')
+            .insert([{ user_id: userId, ...destinationData }])
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 
     async getUserDestinations(userId, activeOnly = true) {
-        const query = { userId };
+        let query = supabase.from('destinations').select('*').eq('user_id', userId);
+
         if (activeOnly) {
-            query.isActive = true;
+            query = query.eq('is_active', true);
         }
-        return await Destination.find(query).sort({ createdAt: -1 });
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
     }
 
     async deleteDestination(userId, destinationId) {
-        const destination = await Destination.findOneAndDelete({
-            _id: destinationId,
-            userId: userId
-        });
-        return destination;
+        const { data, error } = await supabase
+            .from('destinations')
+            .delete()
+            .eq('id', destinationId)
+            .eq('user_id', userId)
+            .select();
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data[0];
     }
 }
 

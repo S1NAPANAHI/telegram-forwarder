@@ -3,12 +3,10 @@ const cheerio = require('cheerio');
 const KeywordService = require('../services/KeywordService');
 const LoggingService = require('../services/LoggingService');
 const ChannelService = require('../services/ChannelService');
-const { forwardMessage } = require('../services/forwardingService');
+const { forwardMessage, checkDuplicate } = require('../services/forwardingService');
 
-// این کلاس مسئول اسکرپ کردن وب‌سایت‌های خبری است
 class NewsScraper {
   constructor() {
-    // یک دیکشنری برای نگهداری توابع اسکرپر برای هر دامنه
     this.scrapers = {
       'irna.ir': this.scrapeIRNA,
       'isna.ir': this.scrapeISNA,
@@ -16,7 +14,6 @@ class NewsScraper {
     };
   }
 
-  // استخراج دامنه از URL
   extractDomain(url) {
     try {
       const hostname = new URL(url).hostname;
@@ -27,9 +24,8 @@ class NewsScraper {
     }
   }
 
-  // مانیتورینگ یک وب‌سایت خبری
   async monitorNewsWebsite(channel) {
-    const domain = this.extractDomain(channel.channelUrl);
+    const domain = this.extractDomain(channel.channel_url);
     const scraper = this.scrapers[domain];
     
     if (!scraper) {
@@ -38,14 +34,13 @@ class NewsScraper {
     }
 
     try {
-      const articles = await scraper(channel.channelUrl);
+      const articles = await scraper(channel.channel_url);
       await this.processNewArticles(articles, channel);
     } catch (error) {
-      console.error(`Error scraping ${channel.channelUrl}:`, error);
+      console.error(`Error scraping ${channel.channel_url}:`, error);
     }
   }
 
-  // اسکرپ کردن خبرگزاری ایرنا
   async scrapeIRNA(url) {
     const response = await axios.get(url);
     const $ = cheerio.load(response.data);
@@ -70,7 +65,6 @@ class NewsScraper {
     return articles;
   }
 
-  // اسکرپ کردن خبرگزاری ایسنا
   async scrapeISNA(url) {
     const response = await axios.get(url);
     const $ = cheerio.load(response.data);
@@ -95,85 +89,74 @@ class NewsScraper {
     return articles;
   }
 
-  // اسکرپ کردن خبرگزاری مهر (پیاده‌سازی نشده)
   async scrapeMehr(url) {
     console.log(`Scraping Mehrnews.com is not yet implemented. URL: ${url}`);
     return [];
   }
 
-  // پردازش مقالات جدید
   async processNewArticles(articles, channel) {
-    const lastChecked = channel.lastChecked || new Date(0);
+    const lastChecked = channel.last_checked || new Date(0);
     let newLastChecked = lastChecked;
 
     for (const article of articles) {
-      if (new Date(article.timestamp) > lastChecked) {
+      if (new Date(article.timestamp) > new Date(lastChecked)) {
         await this.checkArticleForKeywords(article, channel);
-        if (new Date(article.timestamp) > newLastChecked) {
+        if (new Date(article.timestamp) > new Date(newLastChecked)) {
           newLastChecked = new Date(article.timestamp);
         }
       }
     }
 
-    // به‌روزرسانی زمان آخرین بررسی
-    await ChannelService.updateLastChecked(channel._id);
+    await ChannelService.updateLastChecked(channel.id);
   }
 
-  // بررسی مقالات برای کلمات کلیدی
   async checkArticleForKeywords(article, channel) {
     let logEntry;
     try {
-      const keywords = await KeywordService.getUserKeywords(channel.userId);
+      const keywords = await KeywordService.getUserKeywords(channel.user_id);
 
       const fullText = `${article.title} ${article.content}`;
       
       for (const keywordObj of keywords) {
         if (this.isKeywordMatch(fullText, keywordObj)) {
-          const isDuplicate = await LoggingService.checkDuplicate(
-            channel.userId,
-            article.link, // Use article link as message ID for uniqueness
-            'website'
+          const isDuplicate = await checkDuplicate(
+            channel.user_id,
+            keywordObj.id,
+            article.link
           );
           if (!isDuplicate) {
-            logEntry = await LoggingService.logMessageProcessing({
-              userId: channel.userId,
-              keywordId: keywordObj._id,
-              channelId: channel._id,
-              originalMessage: {
-                messageId: article.link,
-                text: fullText,
-                platform: 'website',
-                channelName: channel.channelName,
-                timestamp: article.timestamp
-              },
+            logEntry = await LoggingService.logMessage({
+              userId: channel.user_id,
+              keywordId: keywordObj.id,
+              channelId: channel.id,
+              originalMessageId: article.link,
+              originalMessageText: fullText,
               matchedText: fullText,
-              forwardedTo: [],
               status: 'pending'
             });
-            await forwardMessage({ ...article, logId: logEntry._id }, { ...channel, chatId: channel.channelUrl }, keywordObj);
+            await forwardMessage({ ...article, logId: logEntry.id }, { ...channel, chat_id: channel.channel_url }, keywordObj);
           }
           break;
         }
       }
     } catch (error) {
       if (logEntry) {
-        await LoggingService.updateLogStatus(logEntry._id, 'failed');
+        await LoggingService.updateLogStatus(logEntry.id, 'failed');
       }
       console.error('Error processing scraped article:', error);
     }
   }
 
-  // بررسی تطابق کلمه کلیدی
   isKeywordMatch(text, keywordObj) {
     let searchText = text;
     let searchKeyword = keywordObj.keyword;
 
-    if (!keywordObj.caseSensitive) {
+    if (!keywordObj.case_sensitive) {
       searchText = searchText.toLowerCase();
       searchKeyword = searchKeyword.toLowerCase();
     }
 
-    if (keywordObj.exactMatch) {
+    if (keywordObj.exact_match) {
       return searchText === searchKeyword;
     } else {
       return searchText.includes(searchKeyword);

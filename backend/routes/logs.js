@@ -8,7 +8,7 @@ const LoggingService = require('../services/LoggingService');
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const logs = await LoggingService.getUserLogs(req.user.id);
+    const logs = await LoggingService.getLogsForUser(req.user.id);
     res.json(logs);
   } catch (error) {
     console.error(error.message);
@@ -21,13 +21,14 @@ router.get('/', auth, async (req, res) => {
 // @access  Private
 router.get('/:id', auth, async (req, res) => {
   try {
-    const log = await LoggingService.getLogById(req.user.id, req.params.id);
+    // Assuming getLogById is implemented in LoggingService to fetch a single log by ID and userId
+    const log = await LoggingService.getLogsForUser(req.user.id, req.params.id);
 
-    if (!log) {
+    if (!log || log.length === 0) {
       return res.status(404).json({ msg: 'Log entry not found' });
     }
 
-    res.json(log);
+    res.json(log[0]); // Assuming it returns an array, take the first element
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Server Error');

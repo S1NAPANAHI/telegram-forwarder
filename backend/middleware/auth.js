@@ -1,20 +1,24 @@
-const jwt = require('jsonwebtoken');
+const supabase = require('../database/supabase');
 
-module.exports = function(req, res, next) {
-  // Get token from header
+module.exports = async function(req, res, next) {
   const token = req.header('x-auth-token');
 
-  // Check if not token
   if (!token) {
     return res.status(401).json({ msg: 'No token, authorization denied' });
   }
 
-  // Verify token
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded.user;
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error) {
+      console.error('Supabase auth error:', error.message);
+      return res.status(401).json({ msg: 'Token is not valid' });
+    }
+
+    req.user = user;
     next();
   } catch (err) {
-    res.status(401).json({ msg: 'Token is not valid' });
+    console.error(err.message);
+    res.status(500).json({ msg: 'Server Error' });
   }
 };

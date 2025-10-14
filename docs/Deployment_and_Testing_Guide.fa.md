@@ -8,6 +8,7 @@
 
 - **داکر:** [دریافت داکر](https://docs.docker.com/get-docker/)
 - **داکر کامپوز:** [نصب داکر کامپوز](https://docs.docker.com/compose/install/)
+- **پروژه Supabase:** اطمینان حاصل کنید که یک پروژه Supabase راه‌اندازی کرده‌اید و شمای پایگاه داده را طبق [راهنمای مهاجرت](./migration_to_supabase.md) مهاجرت داده‌اید.
 
 ## ۲. پیکربندی
 
@@ -18,8 +19,12 @@
 ۲. **افزودن متغیرها:** محتویات فایل `.env.example` (در صورت وجود) را کپی کرده یا از الگوی زیر استفاده کنید و اطلاعات واقعی خود را وارد نمایید:
 
     ```
-    # پایگاه داده
-    MONGODB_URI=mongodb://mongodb:27017/newsmonitor
+    # Supabase
+    SUPABASE_URL=your-supabase-project-url
+    SUPABASE_ANON_KEY=your-supabase-anon-key
+    SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+    # Redis
     REDIS_URL=redis://redis:6379
 
     # تلگرام
@@ -32,10 +37,6 @@
     # OpenAI
     OPENAI_API_KEY=your_openai_api_key
 
-    # JWT
-    JWT_SECRET=your_jwt_secret_key
-    JWT_EXPIRES_IN=7d
-
     # سرور
     PORT=5000
     NODE_ENV=production
@@ -47,7 +48,7 @@
 
 ## ۳. استقرار
 
-اپلیکیشن با استفاده از داکر کامپوز استقرار می‌یابد که سرویس‌های فرانت‌اند، بک‌اند، پایگاه داده و سایر سرویس‌ها را مدیریت می‌کند.
+اپلیکیشن با استفاده از داکر کامپوز استقرار می‌یابد که سرویس‌های فرانت‌اند، بک‌اند، Redis و سایر سرویس‌ها را مدیریت می‌کند.
 
 ۱. **یک ترمینال باز کنید** در پوشه اصلی پروژه.
 
