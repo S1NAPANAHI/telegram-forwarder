@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
+import i18nextConfig from '../next-i18next.config';
 
 export default function Home() {
   const { t } = useTranslation('common');
@@ -19,9 +20,10 @@ export default function Home() {
 }
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => {
+  const lng = locale || 'fa';
   console.log('getStaticProps: Received locale', locale);
-  const translations = await serverSideTranslations(locale ?? 'en', ['common']); // Pass the i18n config
-  console.log('getStaticProps: Loaded translations for locale', locale ?? 'en', translations);
+  const translations = await serverSideTranslations(lng, ['common'], i18nextConfig);
+  console.log('getStaticProps: Loaded translations for locale', lng, translations);
   return {
     props: {
       ...translations,
