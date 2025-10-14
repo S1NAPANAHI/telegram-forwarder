@@ -94,5 +94,15 @@
   "keywords": "کلمات کلیدی",
   "channels": "کانال‌ها",
   "destinations": "مقاصد",
-  "monitoring": "مانیتورینگ"
+  "monitoring": "مانیتورینگ",
+  "keyword": "کلمه کلیدی",
+  "welcomeBack": "خوش آمدید! اینجا رویدادهای امروز ربات شما است.",
+  "successRate": "نرخ موفقیت",
+  "viewDetails": "مشاهده جزئیات",
+  "topKeywords": "برترین کلمات کلیدی",
+  "matches": "تطابق",
+  "viewAllLogs": "مشاهده تمام گزارش‌ها",
+  "addNewKeyword": "افزودن کلمه کلیدی جدید",
+  "cancel": "لغو",
+  "forwarded": "ارسال شده"
 }
