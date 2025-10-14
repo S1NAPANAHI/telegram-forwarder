@@ -8,10 +8,10 @@ COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
 
 # Install dependencies
-RUN npm cache clean --force && npm install --save-dev @types/node && npm install
+RUN npm install
 
 # Copy source code
-COPY frontend/ .
+COPY frontend/ ./
 
 # Build frontend
 RUN npm run build
