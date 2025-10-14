@@ -15,7 +15,7 @@ const queryClient = new QueryClient();
 function MyApp({ Component, pageProps, router }: AppProps) {
   // Apply persisted language + RTL on load
   useEffect(() => {
-    const lng = router.locale || localStorage.getItem('ui_language') || 'fa';
+    const lng = router.locale || (typeof window !== 'undefined' && localStorage.getItem('ui_language')) || 'fa';
     if (lng === 'fa') {
       document.documentElement.dir = 'rtl';
       document.documentElement.lang = 'fa';
@@ -37,4 +37,3 @@ function MyApp({ Component, pageProps, router }: AppProps) {
 }
 
 export default appWithTranslation(MyApp);
-}
