@@ -5,6 +5,7 @@ const LoggingService = require('../services/LoggingService');
 const ChannelService = require('../services/ChannelService');
 const UserService = require('../services/UserService');
 const { forwardMessage, checkDuplicate } = require('../services/forwardingService');
+const puppeteerConfig = require('../config/puppeteer');
 
 puppeteer.use(StealthPlugin());
 
@@ -17,10 +18,7 @@ class EitaaMonitor {
   }
 
   async initialize() {
-    this.browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    this.browser = await puppeteer.launch(puppeteerConfig);
     
     this.page = await this.browser.newPage();
     

@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config({ path: '../.env' });
+require('dotenv').config({ path: process.env.NODE_ENV === 'production' ? './.env' : '../.env' });
 const monitoringManager = require('./services/monitoringManager');
 
 const app = express();
@@ -28,6 +28,15 @@ app.use('/api/channels', require('./routes/channels'));
 app.use('/api/destinations', require('./routes/destinations'));
 app.use('/api/monitoring', require('./routes/monitoring'));
 app.use('/api/logs', require('./routes/logs'));
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
 
 // Initialize monitoring manager
 monitoringManager.initialize();
