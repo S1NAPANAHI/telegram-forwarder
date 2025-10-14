@@ -14,9 +14,14 @@ import {
   MoonIcon,
   Bars3Icon,
   XMarkIcon,
+  ArrowRightOnRectangleIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
+import { useAuth, useUserProfile } from '../context/AuthContext';
+import { Menu, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,6 +37,8 @@ interface MenuItem {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { t } = useTranslation('common');
   const router = useRouter();
+  const { logout, isAuthenticated } = useAuth();
+  const userProfile = useUserProfile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -55,6 +62,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
   };
 
   const navigation: MenuItem[] = [
@@ -116,6 +128,42 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 );
               })}
             </nav>
+
+            {/* Mobile user info */}
+            {userProfile && (
+              <div className="absolute bottom-0 left-0 right-0 p-4 border-t dark:border-gray-700">
+                <div className="flex items-center space-x-3">
+                  {userProfile.avatar ? (
+                    <img
+                      src={userProfile.avatar}
+                      alt={userProfile.displayName}
+                      className="h-8 w-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <UserIcon className="h-5 w-5 text-white" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {userProfile.displayName}
+                    </p>
+                    {userProfile.isTelegramUser && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        Telegram User
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                    title="Logout"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -149,6 +197,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 );
               })}
             </nav>
+
+            {/* Desktop user info */}
+            {userProfile && (
+              <div className="p-4 border-t dark:border-gray-700">
+                <div className="flex items-center space-x-3">
+                  {userProfile.avatar ? (
+                    <img
+                      src={userProfile.avatar}
+                      alt={userProfile.displayName}
+                      className="h-10 w-10 rounded-full"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center">
+                      <UserIcon className="h-6 w-6 text-white" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {userProfile.displayName}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {userProfile.isTelegramUser ? 'Telegram User' : userProfile.email}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                    title="Logout"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -202,17 +284,81 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
                 </button>
 
-                {/* User menu */}
-                <div className="relative">
-                  <button className="flex items-center space-x-2 p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                    <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <UserIcon className="h-5 w-5 text-white" />
-                    </div>
-                    <span className="hidden md:block text-sm font-medium">
-                      {t('admin')}
-                    </span>
-                  </button>
-                </div>
+                {/* User menu dropdown */}
+                {userProfile ? (
+                  <Menu as="div" className="relative">
+                    <Menu.Button className="flex items-center space-x-2 p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                      {userProfile.avatar ? (
+                        <img
+                          src={userProfile.avatar}
+                          alt={userProfile.displayName}
+                          className="h-8 w-8 rounded-full"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                          <UserIcon className="h-5 w-5 text-white" />
+                        </div>
+                      )}
+                      <div className="hidden md:block text-left">
+                        <p className="text-sm font-medium">{userProfile.displayName}</p>
+                        {userProfile.isTelegramUser && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400">
+                            Telegram
+                          </p>
+                        )}
+                      </div>
+                      <ChevronDownIcon className="hidden md:block h-4 w-4" />
+                    </Menu.Button>
+
+                    <Transition
+                      as={Fragment}
+                      enter="transition ease-out duration-100"
+                      enterFrom="transform opacity-0 scale-95"
+                      enterTo="transform opacity-100 scale-100"
+                      leave="transition ease-in duration-75"
+                      leaveFrom="transform opacity-100 scale-100"
+                      leaveTo="transform opacity-0 scale-95"
+                    >
+                      <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                        <div className="p-3 border-b dark:border-gray-700">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {userProfile.displayName}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {userProfile.email}
+                          </p>
+                          {userProfile.isTelegramUser && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                              🤖 Telegram ID: {userProfile.telegramId}
+                            </p>
+                          )}
+                        </div>
+                        <div className="py-1">
+                          <Menu.Item>
+                            {({ active }) => (
+                              <button
+                                onClick={handleLogout}
+                                className={`${
+                                  active ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'text-gray-700 dark:text-gray-300'
+                                } group flex items-center w-full px-3 py-2 text-sm transition-colors`}
+                              >
+                                <ArrowRightOnRectangleIcon className="mr-2 h-4 w-4" />
+                                Logout
+                              </button>
+                            )}
+                          </Menu.Item>
+                        </div>
+                      </Menu.Items>
+                    </Transition>
+                  </Menu>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
+                  >
+                    Login
+                  </Link>
+                )}
               </div>
             </div>
           </header>
