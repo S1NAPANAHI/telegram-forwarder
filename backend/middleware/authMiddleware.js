@@ -23,41 +23,73 @@ class AuthMiddleware {
       } catch (e) {
         console.log('[Auth] token verify failed:', e.name, e.message);
         if (e.name === 'JsonWebTokenError') {
-          return res.status(401).json({ error: 'Invalid authentication token.', requiresAuth: true });
+          return res.status(401).json({ 
+            error: 'Invalid authentication token.',
+            requiresAuth: true,
+            code: 'INVALID_TOKEN'
+          });
         }
         if (e.name === 'TokenExpiredError') {
-          return res.status(401).json({ error: 'Authentication token has expired.', requiresAuth: true });
+          return res.status(401).json({ 
+            error: 'Authentication token has expired.',
+            requiresAuth: true,
+            code: 'TOKEN_EXPIRED'
+          });
         }
-        throw e;
+        return res.status(401).json({ 
+          error: 'Token verification failed.',
+          requiresAuth: true 
+        });
+      }
+
+      if (!decoded.userId) {
+        return res.status(401).json({ 
+          error: 'Invalid token payload.',
+          requiresAuth: true 
+        });
       }
 
       // 1) Try app users table
-      let user = await UserService.getUserById(decoded.userId);
+      let user;
+      try {
+        user = await UserService.getUserById(decoded.userId);
+      } catch (serviceErr) {
+        console.log('[Auth] UserService error:', serviceErr.message);
+      }
 
       // 2) Fallback to Supabase auth admin if not found
       if (!user) {
         try {
-          const { data: authData } = await supabase.auth.admin.getUserById(decoded.userId);
-          if (authData?.user) {
+          const { data: authData, error: authError } = await supabase.auth.admin.getUserById(decoded.userId);
+          if (!authError && authData?.user) {
             user = {
               id: authData.user.id,
               email: authData.user.email,
               username: authData.user.user_metadata?.username || null,
-              role: 'user',
+              role: authData.user.user_metadata?.role || 'user',
               language: authData.user.user_metadata?.language || 'fa',
               is_active: true,
               isActive: true
             };
             console.log('[Auth] user via admin fallback:', user.id);
+          } else {
+            console.log('[Auth] admin fallback failed:', authError?.message);
           }
         } catch (adminErr) {
-          console.log('[Auth] admin fallback failed:', adminErr?.message);
+          console.log('[Auth] admin fallback exception:', adminErr?.message);
         }
       }
 
-      if (!user || user.isActive === false || user.is_active === false) {
+      if (!user) {
         return res.status(401).json({ 
-          error: 'Invalid token or user account is deactivated.',
+          error: 'User account not found.',
+          requiresAuth: true 
+        });
+      }
+
+      if (user.isActive === false || user.is_active === false) {
+        return res.status(401).json({ 
+          error: 'User account is deactivated.',
           requiresAuth: true 
         });
       }
@@ -65,8 +97,11 @@ class AuthMiddleware {
       req.user = user;
       next();
     } catch (error) {
-      console.error('[Auth] error:', error);
-      return res.status(500).json({ error: 'Authentication service error' });
+      console.error('[Auth] unexpected error:', error);
+      return res.status(500).json({ 
+        error: 'Authentication service error',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   };
 }
