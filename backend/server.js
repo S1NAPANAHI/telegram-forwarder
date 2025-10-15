@@ -89,7 +89,7 @@ app.get('/health', (req, res) => {
 
 // Routes with logs
 const routes = [
-  { path: '/api/auth', files: ['./routes/auth.session', './routes/auth', './routes/auth.webapp', './routes/auth.whoami'] },
+  { path: '/api/auth', file: './routes/auth.js' },
   { path: '/api/keywords', file: './routes/keywords' },
   { path: '/api/channels', file: './routes/channels' },
   { path: '/api/destinations', file: './routes/destinations' },
