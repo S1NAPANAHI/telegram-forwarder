@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import api, { setAccessToken } from '../lib/api';
 
 interface User {
@@ -29,47 +29,76 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const isRefreshingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const fetchMe = async () => {
     console.log('AuthContext: Fetching /api/auth/me...');
     const res = await api.get('/api/auth/me');
     console.log('AuthContext: /me success:', res.data);
-    setUser(res.data);
+    if (mountedRef.current) {
+      setUser(res.data);
+    }
   };
 
   const tryRefresh = async () => {
-    console.log('AuthContext: Attempting refresh...');
-    const res = await api.post('/api/auth/refresh');
-    if (res.data?.accessToken) {
-      console.log('AuthContext: Refresh successful, setting new access token');
-      setAccessToken(res.data.accessToken);
-      return true;
+    if (isRefreshingRef.current) {
+      console.log('AuthContext: Refresh already in progress, skipping');
+      return false;
     }
-    return false;
+
+    isRefreshingRef.current = true;
+    try {
+      console.log('AuthContext: Attempting refresh...');
+      const res = await api.post('/api/auth/refresh');
+      if (res.data?.accessToken) {
+        console.log('AuthContext: Refresh successful, setting new access token');
+        setAccessToken(res.data.accessToken);
+        return true;
+      }
+      return false;
+    } catch (refreshErr: any) {
+      console.log('AuthContext: Refresh failed:', refreshErr?.response?.data?.error || refreshErr.message);
+      return false;
+    } finally {
+      isRefreshingRef.current = false;
+    }
   };
 
   const refresh = async () => {
+    if (!mountedRef.current) return;
+
     try {
       await fetchMe();
     } catch (e: any) {
-      console.log('AuthContext: /me failed:', e?.response?.status, e?.response?.data?.msg);
-      if (e?.response?.status === 401) {
-        try {
-          const refreshed = await tryRefresh();
-          if (refreshed) {
+      console.log('AuthContext: /me failed:', e?.response?.status, e?.response?.data?.error);
+      
+      if (e?.response?.status === 401 && mountedRef.current) {
+        const refreshed = await tryRefresh();
+        if (refreshed && mountedRef.current) {
+          try {
             await fetchMe();
-          } else {
+          } catch (fetchErr) {
+            console.log('AuthContext: Fetch after refresh failed:', fetchErr);
             setUser(null);
           }
-        } catch (refreshErr) {
-          console.log('AuthContext: Refresh failed:', refreshErr);
+        } else if (mountedRef.current) {
           setUser(null);
         }
-      } else {
+      } else if (mountedRef.current) {
         setUser(null);
       }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -87,7 +116,9 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       console.log('AuthContext: Logout error (ignoring):', e);
     }
     setAccessToken(null);
-    setUser(null);
+    if (mountedRef.current) {
+      setUser(null);
+    }
   };
 
   const loginWithEmail = async (email: string, password: string) => {
@@ -100,9 +131,11 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       setAccessToken(res.data.accessToken);
     }
     
-    console.log('AuthContext: Calling refresh after login...');
-    setLoading(true);
-    await refresh();
+    if (mountedRef.current) {
+      console.log('AuthContext: Calling refresh after login...');
+      setLoading(true);
+      await refresh();
+    }
   };
 
   return (
