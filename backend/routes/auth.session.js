@@ -103,7 +103,10 @@ router.get('/me', async (req, res) => {
 
     if (!token) {
       console.log('No token found in request');
-      return res.status(401).json({ msg: 'Unauthorized - no token' });
+      return res.status(401).json({ 
+        error: 'Access denied. Authentication token required.',
+        requiresAuth: true 
+      });
     }
 
     let decoded;
@@ -112,13 +115,27 @@ router.get('/me', async (req, res) => {
       console.log('Token decoded successfully for user:', decoded.userId);
     } catch (verifyErr) {
       console.log('Token verification failed:', verifyErr.message);
+      if (verifyErr.name === 'TokenExpiredError') {
+        return res.status(401).json({ 
+          error: 'Authentication token has expired.',
+          requiresAuth: true,
+          code: 'TOKEN_EXPIRED' 
+        });
+      }
+      if (verifyErr.name === 'JsonWebTokenError') {
+        return res.status(401).json({ 
+          error: 'Invalid authentication token.',
+          requiresAuth: true,
+          code: 'INVALID_TOKEN' 
+        });
+      }
       throw verifyErr;
     }
 
     // Try database table lookup first
     let { data: user, error } = await supabase
       .from('users')
-      .select('id, email, username, telegram_id, first_name, last_name')
+      .select('id, email, username, telegram_id, first_name, last_name, role, language, is_active')
       .eq('id', decoded.userId)
       .single();
 
@@ -134,7 +151,10 @@ router.get('/me', async (req, res) => {
             username: authData.user.user_metadata?.username || null,
             telegram_id: null,
             first_name: authData.user.user_metadata?.first_name || null,
-            last_name: authData.user.user_metadata?.last_name || null
+            last_name: authData.user.user_metadata?.last_name || null,
+            role: 'user',
+            language: 'fa',
+            is_active: true
           };
           console.log('Found user via auth API:', user.email);
         }
@@ -143,24 +163,34 @@ router.get('/me', async (req, res) => {
       }
       if (!user) {
         console.log('User not found anywhere for:', decoded.userId);
-        return res.status(401).json({ msg: 'User not found' });
+        return res.status(401).json({ 
+          error: 'User account not found or deactivated.',
+          requiresAuth: true 
+        });
       }
     } else {
       console.log('Found user in table:', user.email);
     }
 
-    return res.json(user);
+    // Check if user is active
+    if (user.is_active === false) {
+      return res.status(401).json({ 
+        error: 'User account is deactivated.',
+        requiresAuth: true 
+      });
+    }
+
+    return res.json({
+      id: user.id,
+      email: user.email || null,
+      username: user.username || null,
+      telegramId: user.telegram_id || null,
+      role: user.role || 'user',
+      language: user.language || 'fa'
+    });
   } catch (e) {
     console.error('/me error:', e.message);
-    if (e.name === 'TokenExpiredError') {
-      console.log('Access token expired');
-      return res.status(401).json({ code: 'TOKEN_EXPIRED', msg: 'Access expired' });
-    }
-    if (e.name === 'JsonWebTokenError') {
-      console.log('JWT malformed');
-      return res.status(401).json({ code: 'INVALID_TOKEN', msg: 'Invalid token format' });
-    }
-    return res.status(401).json({ msg: 'Unauthorized - ' + e.message });
+    return res.status(500).json({ error: 'Authentication service error' });
   }
 });
 
@@ -173,7 +203,11 @@ router.post('/refresh', async (req, res) => {
     const { refresh_token } = req.cookies || {};
     if (!refresh_token) {
       console.log('No refresh token found in cookies');
-      return res.status(401).json({ msg: 'No refresh token' });
+      return res.status(401).json({ 
+        error: 'Refresh token required for authentication renewal.',
+        requiresAuth: true,
+        code: 'NO_REFRESH_TOKEN'
+      });
     }
 
     console.log('Found refresh token, length:', refresh_token.length, 'verifying...');
@@ -183,26 +217,94 @@ router.post('/refresh', async (req, res) => {
       console.log('Refresh token valid for user:', decoded.userId);
     } catch (verifyErr) {
       console.log('Refresh token verification failed:', verifyErr.message);
+      if (verifyErr.name === 'TokenExpiredError') {
+        return res.status(401).json({ 
+          error: 'Refresh token has expired. Please login again.',
+          requiresAuth: true,
+          code: 'REFRESH_TOKEN_EXPIRED'
+        });
+      }
+      if (verifyErr.name === 'JsonWebTokenError') {
+        return res.status(401).json({ 
+          error: 'Invalid refresh token format.',
+          requiresAuth: true,
+          code: 'INVALID_REFRESH_TOKEN'
+        });
+      }
       throw verifyErr;
     }
 
     if (!isValidStoredRefresh(decoded.userId, refresh_token)) {
       console.log('Refresh token not found in store for user:', decoded.userId);
-      return res.status(401).json({ msg: 'Invalid refresh token' });
+      return res.status(401).json({ 
+        error: 'Refresh token not recognized. Please login again.',
+        requiresAuth: true,
+        code: 'REFRESH_TOKEN_NOT_FOUND'
+      });
     }
 
-    // rotate refresh
+    // Get user info for the new access token
+    let { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, username, telegram_id, role, is_active')
+      .eq('id', decoded.userId)
+      .single();
+
+    if (error || !user) {
+      // Fallback to auth API
+      try {
+        const { data: authData } = await supabase.auth.admin.getUserById(decoded.userId);
+        if (authData?.user) {
+          user = {
+            id: authData.user.id,
+            email: authData.user.email,
+            username: authData.user.user_metadata?.username || null,
+            role: 'user',
+            is_active: true
+          };
+        }
+      } catch (authErr) {
+        console.error('Auth API error during refresh:', authErr);
+      }
+    }
+
+    if (!user || user.is_active === false) {
+      return res.status(401).json({ 
+        error: 'User account not found or deactivated.',
+        requiresAuth: true 
+      });
+    }
+
+    // Rotate refresh token
     const newRefresh = signRefreshToken({ userId: decoded.userId });
     rotateRefreshToken(decoded.userId, newRefresh);
     setRefreshCookie(res, newRefresh);
 
-    const accessToken = signAccessToken({ userId: decoded.userId });
+    // Generate new access token with user info
+    const accessToken = signAccessToken({ 
+      userId: decoded.userId,
+      email: user.email,
+      username: user.username
+    });
     console.log('Generated new access token for user:', decoded.userId, 'length:', accessToken.length);
     
-    return res.json({ accessToken, expiresIn: ACCESS_EXPIRES_IN });
+    return res.json({ 
+      accessToken, 
+      expiresIn: ACCESS_EXPIRES_IN,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role
+      }
+    });
   } catch (e) {
     console.error('refresh error:', e.message);
-    return res.status(401).json({ msg: 'Refresh failed - ' + e.message });
+    return res.status(401).json({ 
+      error: 'Authentication renewal failed. Please login again.',
+      requiresAuth: true,
+      code: 'REFRESH_FAILED'
+    });
   }
 });
 
@@ -216,15 +318,15 @@ router.post('/logout', async (req, res) => {
         revokeRefreshToken(decoded.userId);
         console.log('Revoked refresh token for user:', decoded.userId);
       } catch (e) {
-        console.log('Error revoking refresh token:', e.message);
+        console.log('Error revoking refresh token (non-critical):', e.message);
       }
     }
     res.clearCookie('refresh_token', clearCookieOptions());
     console.log('Cleared refresh cookie');
-    return res.json({ ok: true });
+    return res.json({ success: true, message: 'Logged out successfully' });
   } catch (e) {
     console.error('logout error:', e);
-    return res.json({ ok: true });
+    return res.json({ success: true, message: 'Logged out (with errors)' });
   }
 });
 
