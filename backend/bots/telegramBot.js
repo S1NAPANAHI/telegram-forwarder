@@ -15,28 +15,41 @@ class TelegramMonitor {
 
   constructor() {
     if (TelegramMonitor.instance) return TelegramMonitor.instance;
-
     this.webhookUrl = process.env.TELEGRAM_WEBHOOK_URL || 'https://backend-service-idry.onrender.com/api/bot/webhook';
-    this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+    this.bot = null; // lazily created
     this.monitoredChannels = new Map();
-    this.chatDiscovery = new ChatDiscoveryService(this.bot);
-
+    this.chatDiscovery = null; // lazily created after bot
     TelegramMonitor.instance = this;
   }
 
   async initialize() {
     try {
-      const me = await this.bot.getMe();
-      console.log(`Telegram bot connected: @${me.username}`);
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (!token) {
+        console.warn('TELEGRAM_BOT_TOKEN missing; TelegramMonitor disabled');
+        return;
+      }
 
-      // Reset webhook to our URL
+      // Create bot lazily
+      this.bot = new TelegramBot(token, { polling: false });
+      this.chatDiscovery = new ChatDiscoveryService(this.bot);
+
+      // Identify bot
+      let me = null;
+      try {
+        me = await this.bot.getMe();
+        console.log(`Telegram bot connected: @${me.username}`);
+      } catch (e) {
+        console.error('getMe failed:', e?.message || e);
+      }
+
+      // Reset webhook then set
       try {
         await this.bot.deleteWebHook({ drop_pending_updates: false });
         console.log('Webhook deleted (cleanup)');
       } catch (e) {
         console.warn('deleteWebHook warn:', e?.message || e);
       }
-
       try {
         await this.bot.setWebHook(this.webhookUrl);
         console.log('Webhook set OK →', this.webhookUrl);
@@ -44,7 +57,7 @@ class TelegramMonitor {
         console.error('setWebHook failed:', e?.message || e);
       }
 
-      // Register commands menu
+      // Commands & menu
       try {
         await this.bot.setMyCommands([
           { command: 'start', description: 'Start using the bot' },
@@ -59,8 +72,6 @@ class TelegramMonitor {
       } catch (e) {
         console.error('setMyCommands failed:', e?.message || e);
       }
-
-      // Chat menu button for Web App
       try {
         await this.bot.setChatMenuButton({ menu_button: { type: 'web_app', text: 'Open Panel', web_app: { url: WEBAPP_URL } } });
         console.log('✓ Set chat menu button');
@@ -68,7 +79,7 @@ class TelegramMonitor {
         console.error('setChatMenuButton failed:', e?.message || e);
       }
 
-      // Load monitored channels
+      // Load channels
       try {
         const channels = await ChannelService.getActiveChannelsByPlatform('telegram');
         for (const channel of channels) await this.startMonitoringChannel(channel);
@@ -78,23 +89,20 @@ class TelegramMonitor {
 
       console.log('Telegram Monitor initialized (webhook mode)');
     } catch (error) {
-      console.error('Failed to initialize Telegram Monitor:', error);
+      console.error('TelegramMonitor initialize error:', error?.message || error);
     }
   }
 
   async startMonitoringChannel(channel) {
     try {
       const chatId = channel.platform_specific_id || this.extractChatIdFromUrl(channel.channel_url);
+      if (!chatId) return;
       this.monitoredChannels.set(chatId.toString(), { channelId: channel.id, userId: channel.user_id, name: channel.name || channel.channel_name });
       console.log(`Monitoring: ${channel.channel_name} (${chatId})`);
-    } catch (e) {
-      console.error('startMonitoringChannel error:', e?.message || e);
-    }
+    } catch (e) { console.error('startMonitoringChannel error:', e?.message || e); }
   }
 
-  async stopMonitoringChannel(channelId) {
-    this.monitoredChannels.delete(channelId.toString());
-  }
+  async stopMonitoringChannel(channelId) { this.monitoredChannels.delete(channelId.toString()); }
 
   extractChatIdFromUrl(url) {
     if (!url) return '';
@@ -105,22 +113,22 @@ class TelegramMonitor {
 
   extractText(u) { return (u.text || u.caption || '').toString().trim(); }
 
-  // Handlers wired via processUpdate from webhook
   async onMessage(msg) {
-    // discovery
-    await this.chatDiscovery.processUpdate(msg);
-
-    const info = this.monitoredChannels.get(msg.chat.id.toString());
-    if (!info) return; // not monitored
-    await this.processMessage(msg, info.userId, info.channelId, false);
+    try {
+      if (this.chatDiscovery) await this.chatDiscovery.processUpdate(msg);
+      const info = this.monitoredChannels.get(msg.chat.id.toString());
+      if (!info) return;
+      await this.processMessage(msg, info.userId, info.channelId, false);
+    } catch (e) { console.error('onMessage error:', e?.message || e); }
   }
 
   async onChannelPost(post) {
-    await this.chatDiscovery.processUpdate(post);
-
-    const info = this.monitoredChannels.get(post.chat.id.toString());
-    if (!info) return;
-    await this.processMessage(post, info.userId, info.channelId, true);
+    try {
+      if (this.chatDiscovery) await this.chatDiscovery.processUpdate(post);
+      const info = this.monitoredChannels.get(post.chat.id.toString());
+      if (!info) return;
+      await this.processMessage(post, info.userId, info.channelId, true);
+    } catch (e) { console.error('onChannelPost error:', e?.message || e); }
   }
 
   async processMessage(msg, userId, channelId, isChannelPost = false) {
@@ -129,7 +137,6 @@ class TelegramMonitor {
       if (!msg.text && !msg.caption && !msg.photo && !msg.video && !msg.document && !msg.audio && !msg.voice) return;
       const text = this.extractText(msg);
 
-      // Keywords
       let keywords = [];
       try {
         keywords = await KeywordService.getKeywordsByChannelId(channelId);
@@ -161,9 +168,7 @@ class TelegramMonitor {
           await LoggingService.logForwarding({ user_id: userId, channel_id: channelId, destination_id: dest.id, original_message_text: text.slice(0,500), matched_text: text.slice(0,200), status: 'error' });
         }
       }
-    } catch (e) {
-      console.error('processMessage error:', e?.message || e);
-    }
+    } catch (e) { console.error('processMessage error:', e?.message || e); }
   }
 }
 
