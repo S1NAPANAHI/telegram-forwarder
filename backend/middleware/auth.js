@@ -42,53 +42,60 @@ const jwtAuth = async (req, res, next) => {
     }
 
     const token = authHeader.substring(7);
+    console.log(`[jwtAuth] Received token: ${token ? token.substring(0, 20) + '...' : 'null'}`);
     const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Fetch fresh user data from database
-    const { data: userData, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', decoded.userId)
-      .single();
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      console.log(`[jwtAuth] Token verified successfully for user: ${decoded.userId}`);
+      
+      // Fetch fresh user data from database
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', decoded.userId)
+        .single();
 
-    if (error || !userData) {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'User not found or token invalid' 
-      });
+      if (error || !userData) {
+        console.log(`[jwtAuth] User not found for id: ${decoded.userId}`);
+        return res.status(401).json({ 
+          error: 'Unauthorized', 
+          message: 'User not found or token invalid' 
+        });
+      }
+
+      // Attach user data to request
+      req.user = {
+        id: userData.id,
+        telegramId: userData.telegram_id,
+        username: userData.username,
+        email: userData.email,
+        firstName: userData.first_name,
+        lastName: userData.last_name,
+        profilePicture: userData.profile_picture,
+        fullName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.username
+      };
+      
+      req.jwt = decoded;
+      next();
+    } catch (error) {
+      console.log(`[jwtAuth] Token verification failed:`, error.message);
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ 
+          error: 'Unauthorized', 
+          message: 'Token expired',
+          code: 'TOKEN_EXPIRED'
+        });
+      } else if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ 
+          error: 'Unauthorized', 
+          message: 'Invalid token',
+          code: 'INVALID_TOKEN'
+        });
+      }
+      throw error;
     }
-
-    // Attach user data to request
-    req.user = {
-      id: userData.id,
-      telegramId: userData.telegram_id,
-      username: userData.username,
-      email: userData.email,
-      firstName: userData.first_name,
-      lastName: userData.last_name,
-      profilePicture: userData.profile_picture,
-      fullName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.username
-    };
-    
-    req.jwt = decoded;
-    next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'Token expired',
-        code: 'TOKEN_EXPIRED'
-      });
-    } else if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'Invalid token',
-        code: 'INVALID_TOKEN'
-      });
-    }
-    
     console.error('JWT authentication error:', error);
     return res.status(500).json({ 
       error: 'Internal Server Error', 

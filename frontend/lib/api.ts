@@ -21,6 +21,9 @@ export function setAccessToken(token: string | null) {
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (inMemoryAccessToken) {
     config.headers.Authorization = `Bearer ${inMemoryAccessToken}`;
+    console.log(`[Request Interceptor] Sending token: ${inMemoryAccessToken.substring(0, 20)}...`);
+  } else {
+    console.log('[Request Interceptor] No token to send.');
   }
   
   // Log request for debugging
