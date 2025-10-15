@@ -36,26 +36,17 @@ if (frontendUrl && !allowedOrigins.includes(frontendUrl)) {
   allowedOrigins.push(frontendUrl);
 }
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    console.warn(`CORS: Origin ${origin} not allowed`);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-telegram-init-data'],
-  exposedHeaders: ['set-cookie']
-}));
-
-// IMPORTANT: Express v5 no longer supports '*' in app.options; handle preflight via cors and a safe route
-app.options('/__preflight__', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '');
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,x-telegram-init-data');
-  res.sendStatus(200);
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
 });
 
 app.use(helmet({
