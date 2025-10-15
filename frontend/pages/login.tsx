@@ -25,10 +25,13 @@ export default function Login() {
     setLoading(true);
 
     try {
+      console.log('Attempting login with:', email);
       await loginWithEmail(email, password);
+      console.log('Login successful, redirecting...');
       if (next) router.replace(next); else router.replace('/dashboard');
     } catch (err: any) {
-      setError(err?.response?.data?.msg || t('loginFailed'));
+      console.error('Login failed:', err);
+      setError(err?.response?.data?.msg || err?.message || t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -39,7 +42,10 @@ export default function Login() {
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5 dark:opacity-10">
         <div className="absolute inset-0" style={{
-          backgroundImage: `\n            linear-gradient(rgba(36, 161, 222, 0.1) 1px, transparent 1px),\n            linear-gradient(90deg, rgba(36, 161, 222, 0.1) 1px, transparent 1px)\n          `,
+          backgroundImage: `
+            linear-gradient(rgba(36, 161, 222, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(36, 161, 222, 0.1) 1px, transparent 1px)
+          `,
           backgroundSize: '20px 20px'
         }} />
       </div>
@@ -115,6 +121,8 @@ export default function Login() {
               <input
                 type="email"
                 id="email"
+                name="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input-modern w-full"
@@ -136,6 +144,8 @@ export default function Login() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input-modern w-full pr-12"
@@ -199,6 +209,14 @@ export default function Login() {
                 )}
               </motion.button>
             </motion.div>
+
+            {/* Debug Info (remove after testing) */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs font-mono">
+                <p>Frontend: {window.location.origin}</p>
+                <p>API: {process.env.NEXT_PUBLIC_API_URL}</p>
+              </div>
+            )}
 
             {/* Divider */}
             <div className="relative">
