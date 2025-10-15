@@ -1,0 +1,32 @@
+{
+  "name": "telegram-forwarder",
+  "version": "1.0.0",
+  "description": "Telegram message forwarder with monitoring capabilities",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "build": "cd backend && npm install",
+    "postinstall": "cd backend && npm install",
+    "dev": "cd backend && npm run dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/S1NAPANAHI/telegram-forwarder.git"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "forwarder",
+    "monitoring"
+  ],
+  "author": "SINA PANAHI",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/S1NAPANAHI/telegram-forwarder/issues"
+  },
+  "homepage": "https://github.com/S1NAPANAHI/telegram-forwarder#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
