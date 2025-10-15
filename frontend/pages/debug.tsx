@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAuth, useUserProfile } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import Head from 'next/head';
 import Layout from '../components/Layout';
 
@@ -24,21 +24,22 @@ interface TelegramWebApp {
 }
 
 export default function Debug() {
-  const { user, token, isAuthenticated, isTelegramUser, loading } = useAuth();
-  const userProfile = useUserProfile();
+  const { user, loading } = useAuth();
   const [telegramData, setTelegramData] = useState<TelegramWebApp | null>(null);
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
   const [systemInfo, setSystemInfo] = useState<any>(null);
 
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const isAuthenticated = Boolean(user);
+  const isTelegramUser = Boolean(user?.telegramId);
+
   useEffect(() => {
-    // Check if we're in Telegram WebApp
     const tg = (window as any)?.Telegram?.WebApp;
     if (tg) {
       setIsTelegramWebApp(true);
       setTelegramData(tg);
     }
 
-    // Gather system information
     setSystemInfo({
       userAgent: navigator.userAgent,
       language: navigator.language,
@@ -53,9 +54,7 @@ export default function Debug() {
     });
   }, []);
 
-  const envVars = {
-    'NEXT_PUBLIC_API_URL': process.env.NEXT_PUBLIC_API_URL,
-  };
+  const envVars = { 'NEXT_PUBLIC_API_URL': process.env.NEXT_PUBLIC_API_URL };
 
   const InfoSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div className="card p-6">
@@ -101,110 +100,40 @@ export default function Debug() {
       <Layout>
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              🔍 Debug Information
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              System configuration and Telegram WebApp detection
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">🔍 Debug Information</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">System configuration and Telegram WebApp detection</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Telegram WebApp Detection */}
             <InfoSection title="📱 Telegram WebApp Detection">
               <dl className="space-y-3">
-                <InfoRow 
-                  label="Running in Telegram WebApp" 
-                  value={isTelegramWebApp} 
-                  type="boolean" 
-                />
-                <InfoRow 
-                  label="Init Data Available" 
-                  value={Boolean(telegramData?.initData)} 
-                  type="boolean" 
-                />
-                <InfoRow 
-                  label="WebApp Version" 
-                  value={telegramData?.version} 
-                />
-                <InfoRow 
-                  label="Platform" 
-                  value={telegramData?.platform} 
-                />
-                <InfoRow 
-                  label="Color Scheme" 
-                  value={telegramData?.colorScheme} 
-                />
-                <InfoRow 
-                  label="Is Expanded" 
-                  value={telegramData?.isExpanded} 
-                  type="boolean" 
-                />
-                {telegramData?.user && (
-                  <InfoRow 
-                    label="Telegram User Data" 
-                    value={telegramData.user} 
-                    type="json" 
-                  />
-                )}
+                <InfoRow label="Running in Telegram WebApp" value={isTelegramWebApp} type="boolean" />
+                <InfoRow label="Init Data Available" value={Boolean(telegramData?.initData)} type="boolean" />
+                <InfoRow label="WebApp Version" value={telegramData?.version} />
+                <InfoRow label="Platform" value={telegramData?.platform} />
+                <InfoRow label="Color Scheme" value={telegramData?.colorScheme} />
+                <InfoRow label="Is Expanded" value={telegramData?.isExpanded} type="boolean" />
+                {telegramData?.user && <InfoRow label="Telegram User Data" value={telegramData.user} type="json" />}
               </dl>
             </InfoSection>
 
-            {/* Authentication Status */}
             <InfoSection title="🔐 Authentication Status">
               <dl className="space-y-3">
-                <InfoRow 
-                  label="Authenticated" 
-                  value={isAuthenticated} 
-                  type="boolean" 
-                />
-                <InfoRow 
-                  label="Telegram User" 
-                  value={isTelegramUser} 
-                  type="boolean" 
-                />
-                <InfoRow 
-                  label="Loading" 
-                  value={loading} 
-                  type="boolean" 
-                />
-                <InfoRow 
-                  label="Has JWT Token" 
-                  value={Boolean(token)} 
-                  type="boolean" 
-                />
-                {token && (
-                  <InfoRow 
-                    label="Token Preview" 
-                    value={`${token.substring(0, 20)}...`} 
-                  />
-                )}
-                {userProfile && (
+                <InfoRow label="Authenticated" value={isAuthenticated} type="boolean" />
+                <InfoRow label="Telegram User" value={isTelegramUser} type="boolean" />
+                <InfoRow label="Loading" value={loading} type="boolean" />
+                <InfoRow label="Has JWT Token" value={Boolean(token)} type="boolean" />
+                {token && <InfoRow label="Token Preview" value={`${token.substring(0, 20)}...`} />}
+                {user && (
                   <>
-                    <InfoRow 
-                      label="Display Name" 
-                      value={userProfile.displayName} 
-                    />
-                    <InfoRow 
-                      label="Username" 
-                      value={userProfile.username} 
-                    />
-                    <InfoRow 
-                      label="Email" 
-                      value={userProfile.email} 
-                    />
-                    {userProfile.telegramId && (
-                      <InfoRow 
-                        label="Telegram ID" 
-                        value={userProfile.telegramId} 
-                      />
-                    )}
+                    <InfoRow label="Username" value={user.username} />
+                    <InfoRow label="Email" value={user.email} />
+                    {user.telegramId && <InfoRow label="Telegram ID" value={user.telegramId} />}
                   </>
                 )}
               </dl>
             </InfoSection>
 
-            {/* Environment Variables */}
             <InfoSection title="⚙️ Environment Configuration">
               <dl className="space-y-3">
                 {Object.entries(envVars).map(([key, value]) => (
@@ -213,7 +142,6 @@ export default function Debug() {
               </dl>
             </InfoSection>
 
-            {/* System Information */}
             <InfoSection title="💻 System Information">
               <dl className="space-y-3">
                 {systemInfo && Object.entries(systemInfo).map(([key, value]) => (
@@ -228,18 +156,12 @@ export default function Debug() {
             </InfoSection>
           </div>
 
-          {/* Raw User Data */}
           {user && (
             <InfoSection title="👤 Raw User Data">
-              <InfoRow 
-                label="Complete User Object" 
-                value={user} 
-                type="json" 
-              />
+              <InfoRow label="Complete User Object" value={user} type="json" />
             </InfoSection>
           )}
 
-          {/* Telegram Raw Data */}
           {telegramData && (
             <InfoSection title="📋 Raw Telegram Data">
               <InfoRow 
@@ -260,21 +182,10 @@ export default function Debug() {
             </InfoSection>
           )}
 
-          {/* Test Actions */}
           <InfoSection title="🧪 Test Actions">
             <div className="space-y-3">
-              <button
-                onClick={() => window.location.reload()}
-                className="btn-secondary mr-3"
-              >
-                Reload Page
-              </button>
-              <button
-                onClick={() => localStorage.clear()}
-                className="btn-secondary mr-3"
-              >
-                Clear localStorage
-              </button>
+              <button onClick={() => window.location.reload()} className="btn-secondary mr-3">Reload Page</button>
+              <button onClick={() => localStorage.clear()} className="btn-secondary mr-3">Clear localStorage</button>
               <button
                 onClick={() => {
                   navigator.clipboard?.writeText(JSON.stringify({
