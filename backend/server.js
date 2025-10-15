@@ -14,6 +14,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config({ path: process.env.NODE_ENV === 'production' ? './.env' : '../.env' });
 
@@ -21,6 +22,7 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 
 // CORS - allow exact frontend origin and credentials/headers
 const allowedOrigin = process.env.FRONTEND_URL || '*';
@@ -61,6 +63,7 @@ app.get('/health', (req, res) => {
 try {
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/auth', require('./routes/auth.webapp'));
+  app.use('/api/auth', require('./routes/auth.session')); // new cookie-based routes
   app.use('/api/keywords', require('./routes/keywords'));
   app.use('/api/channels', require('./routes/channels'));
   app.use('/api/destinations', require('./routes/destinations'));
