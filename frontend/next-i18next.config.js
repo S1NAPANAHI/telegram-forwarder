@@ -1,12 +1,10 @@
 // frontend/next-i18next.config.js
-const i18n = {
-  locales: ['fa', 'en'],
-  defaultLocale: 'fa',
-  // removed localeDetection to satisfy next-i18next UserConfig types
-};
-
 const config = {
-  i18n,
+  i18n: {
+    locales: ['fa', 'en'],
+    defaultLocale: 'fa',
+    // removed localeDetection to satisfy next-i18next UserConfig types
+  },
   ns: ['common'],
   defaultNS: 'common',
   pages: {
@@ -16,4 +14,3 @@ const config = {
 };
 
 module.exports = config;
-module.exports.default = config;
