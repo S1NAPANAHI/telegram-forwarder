@@ -1,9 +1,10 @@
 const cookieOptionsBase = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production', // only secure in production (HTTPS)
-  sameSite: 'lax',
-  path: '/',
-  domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined // allow subdomain sharing on render
+  sameSite: 'none', // Required for cross-origin requests with credentials
+  path: '/'
+  // Remove domain setting - let browsers handle it naturally
+  // domain: undefined // Don't set domain for cross-subdomain cookies on Render
 };
 
 function refreshCookieOptions(days){
