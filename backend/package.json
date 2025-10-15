@@ -33,6 +33,7 @@
     "puppeteer": "^24.24.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "telegram": "^2.25.15",
     "winston": "^3.18.3"
   },
   "devDependencies": {
