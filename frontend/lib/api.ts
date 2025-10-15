@@ -20,10 +20,7 @@ export function setAccessToken(token: string | null) {
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (inMemoryAccessToken) {
-    config.headers = { 
-      ...(config.headers || {}), 
-      Authorization: `Bearer ${inMemoryAccessToken}` 
-    } as any;
+    config.headers.Authorization = `Bearer ${inMemoryAccessToken}`;
   }
   
   // Log request for debugging
