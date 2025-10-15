@@ -28,17 +28,13 @@ router.post('/login-cookie', async (req, res) => {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return res.status(400).json({ msg: error.message });
-
     // We will build our own app tokens from supabase user
     const supaUser = data.user;
     const payload = { userId: supaUser.id, email: supaUser.email, username: (supaUser.user_metadata||{}).username };
-
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken({ userId: supaUser.id });
-
     saveRefreshToken(supaUser.id, refreshToken);
     setRefreshCookie(res, refreshToken);
-
     res.status(200).json({
       accessToken,
       expiresIn: ACCESS_EXPIRES_IN,
@@ -50,27 +46,34 @@ router.post('/login-cookie', async (req, res) => {
   }
 });
 
-// GET /api/auth/me (cookie-based access token or Authorization)
+// GET /api/auth/me (cookie-based access token or Authorization, fallback to supabase auth if not found in users table)
 router.get('/me', async (req, res) => {
   try {
     let token = null;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.substring(7);
     if (!token && req.cookies && req.cookies.access_token) token = req.cookies.access_token;
-
     if (!token) return res.status(401).json({ msg: 'Unauthorized' });
-
     const decoded = verifyAccessToken(token);
-
-    // fetch latest user from Supabase
-    const { data: user, error } = await supabase
+    // Try database table lookup
+    let { data: user, error } = await supabase
       .from('users')
       .select('id, email, username, telegram_id, first_name, last_name')
       .eq('id', decoded.userId)
       .single();
-
-    if (error || !user) return res.status(401).json({ msg: 'User not found' });
-
+    // If not found, fallback to supabase.auth.getUser
+    if (error || !user) {
+      try {
+        const supaResp = await supabase.auth.admin.getUserById(decoded.userId);
+        user = supaResp?.user ? {
+          id: supaResp.user.id,
+          email: supaResp.user.email,
+          username: supaResp.user.user_metadata?.username || null,
+          telegram_id: null,
+        } : null;
+      } catch {}
+      if (!user) return res.status(401).json({ msg: 'User not found' });
+    }
     return res.json(user);
   } catch (e) {
     if (e.name === 'TokenExpiredError') return res.status(401).json({ code: 'TOKEN_EXPIRED', msg: 'Access expired' });
@@ -83,18 +86,14 @@ router.post('/refresh', async (req, res) => {
   try {
     const { refresh_token } = req.cookies || {};
     if (!refresh_token) return res.status(401).json({ msg: 'No refresh token' });
-
     const decoded = verifyRefreshToken(refresh_token);
-
     if (!isValidStoredRefresh(decoded.userId, refresh_token)) {
       return res.status(401).json({ msg: 'Invalid refresh token' });
     }
-
     // rotate refresh
     const newRefresh = signRefreshToken({ userId: decoded.userId });
     rotateRefreshToken(decoded.userId, newRefresh);
     setRefreshCookie(res, newRefresh);
-
     const accessToken = signAccessToken({ userId: decoded.userId });
     return res.json({ accessToken, expiresIn: ACCESS_EXPIRES_IN });
   } catch (e) {
