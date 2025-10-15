@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+const { verifyAccessToken } = require('../services/tokenService');
 const supabase = require('../database/supabase');
 
 /**
@@ -28,78 +28,122 @@ const supabaseAuth = async function(req, res, next) {
 };
 
 /**
- * JWT Authentication Middleware for Telegram WebApp
+ * JWT Authentication Middleware using tokenService
  */
 const jwtAuth = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Check Bearer token first
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+      console.log(`[jwtAuth] Found Bearer token: ${token.substring(0, 20)}...`);
+    }
+    // Fallback to cookie
+    else if (req.cookies && req.cookies.access_token) {
+      token = req.cookies.access_token;
+      console.log(`[jwtAuth] Found cookie token: ${token.substring(0, 20)}...`);
+    }
+
+    if (!token) {
+      console.log('[jwtAuth] No token found in request');
       return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'Missing or invalid authorization header' 
+        error: 'Access denied. Authentication token required.',
+        requiresAuth: true 
       });
     }
 
-    const token = authHeader.substring(7);
-    console.log(`[jwtAuth] Received token: ${token ? token.substring(0, 20) + '...' : 'null'}`);
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = verifyAccessToken(token);
       console.log(`[jwtAuth] Token verified successfully for user: ${decoded.userId}`);
       
       // Fetch fresh user data from database
-      const { data: userData, error } = await supabase
+      let { data: userData, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', decoded.userId)
         .single();
 
+      // If not found in users table, try auth API as fallback
       if (error || !userData) {
-        console.log(`[jwtAuth] User not found for id: ${decoded.userId}`);
+        console.log(`[jwtAuth] User not found in table, trying auth API for: ${decoded.userId}`);
+        try {
+          const { data: authData, error: authError } = await supabase.auth.admin.getUserById(decoded.userId);
+          if (authData?.user) {
+            userData = {
+              id: authData.user.id,
+              email: authData.user.email,
+              username: authData.user.user_metadata?.username || null,
+              telegram_id: null,
+              first_name: authData.user.user_metadata?.first_name || null,
+              last_name: authData.user.user_metadata?.last_name || null,
+              role: 'user',
+              language: 'fa',
+              is_active: true
+            };
+            console.log(`[jwtAuth] Found user via auth API: ${userData.email}`);
+          }
+        } catch (authErr) {
+          console.error('[jwtAuth] Auth API error:', authErr);
+        }
+      }
+
+      if (!userData) {
+        console.log(`[jwtAuth] User not found anywhere for: ${decoded.userId}`);
         return res.status(401).json({ 
-          error: 'Unauthorized', 
-          message: 'User not found or token invalid' 
+          error: 'User account not found or deactivated.',
+          requiresAuth: true 
         });
       }
 
-      // Attach user data to request
+      // Check if user is active
+      if (userData.is_active === false) {
+        return res.status(401).json({ 
+          error: 'User account is deactivated.',
+          requiresAuth: true 
+        });
+      }
+
+      // Attach user data to request in consistent format
       req.user = {
         id: userData.id,
-        telegramId: userData.telegram_id,
-        username: userData.username,
-        email: userData.email,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        profilePicture: userData.profile_picture,
+        email: userData.email || null,
+        username: userData.username || null,
+        telegramId: userData.telegram_id || null,
+        telegram_id: userData.telegram_id || null, // Keep both for compatibility
+        firstName: userData.first_name || null,
+        lastName: userData.last_name || null,
+        profilePicture: userData.profile_picture || null,
+        role: userData.role || 'user',
+        language: userData.language || 'fa',
         fullName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.username
       };
       
       req.jwt = decoded;
+      console.log(`[jwtAuth] User authenticated: ${req.user.email || req.user.username}`);
       next();
     } catch (error) {
       console.log(`[jwtAuth] Token verification failed:`, error.message);
       if (error.name === 'TokenExpiredError') {
         return res.status(401).json({ 
-          error: 'Unauthorized', 
-          message: 'Token expired',
+          error: 'Authentication token has expired.',
+          requiresAuth: true,
           code: 'TOKEN_EXPIRED'
         });
       } else if (error.name === 'JsonWebTokenError') {
         return res.status(401).json({ 
-          error: 'Unauthorized', 
-          message: 'Invalid token',
+          error: 'Invalid authentication token.',
+          requiresAuth: true,
           code: 'INVALID_TOKEN'
         });
       }
       throw error;
     }
   } catch (error) {
-    console.error('JWT authentication error:', error);
+    console.error('[jwtAuth] Authentication error:', error);
     return res.status(500).json({ 
-      error: 'Internal Server Error', 
-      message: 'Authentication error' 
+      error: 'Authentication service error'
     });
   }
 };
@@ -111,8 +155,13 @@ const hybridAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   const legacyToken = req.header('x-auth-token');
   
-  // Try JWT first (Bearer token)
+  // Try JWT first (Bearer token or cookie)
   if (authHeader && authHeader.startsWith('Bearer ')) {
+    return jwtAuth(req, res, next);
+  }
+  
+  // Check for access token in cookies
+  if (req.cookies && req.cookies.access_token) {
     return jwtAuth(req, res, next);
   }
   
@@ -122,8 +171,8 @@ const hybridAuth = async (req, res, next) => {
   }
   
   return res.status(401).json({ 
-    error: 'Unauthorized', 
-    message: 'No authentication method provided' 
+    error: 'Access denied. Authentication token required.',
+    requiresAuth: true 
   });
 };
 
@@ -141,22 +190,17 @@ const optionalAuth = async (req, res, next) => {
 };
 
 /**
- * Generate JWT Token
+ * Generate JWT Token (legacy compatibility)
  */
 const generateToken = (user) => {
-  const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+  const { signAccessToken } = require('../services/tokenService');
   const payload = {
     userId: user.id,
-    telegramId: user.telegram_id,
-    username: user.username,
     email: user.email,
-    type: 'telegram_webapp'
+    username: user.username
   };
   
-  return jwt.sign(payload, JWT_SECRET, { 
-    expiresIn: '7d',
-    issuer: 'telegram-forwarder'
-  });
+  return signAccessToken(payload);
 };
 
 // Default export for backward compatibility
