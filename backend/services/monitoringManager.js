@@ -1,5 +1,6 @@
 const TelegramMonitor = require('../bots/telegramBot');
 const EitaaMonitor = require('../bots/eitaaBot');
+const { startClientMonitor, stopClientMonitor } = require('../bots/clientMonitor');
 const NewsScraper = require('../scraper/newsScraper');
 const supabase = require('../database/supabase');
 
@@ -9,6 +10,7 @@ class MonitoringManager {
     this.eitaaMonitor = new EitaaMonitor();
     this.newsScraper = new NewsScraper();
     this.activeMonitors = new Map();
+    this.clientMonitorActive = false;
   }
 
   async initialize() {
@@ -28,6 +30,20 @@ class MonitoringManager {
     } catch (error) {
       console.error('Failed to initialize Eitaa Monitor:', error);
       // Don't throw - continue without Eitaa monitoring
+    }
+
+    try {
+      // Initialize Client Monitor for non-admin sources (optional)
+      if (process.env.TG_API_ID && process.env.TG_API_HASH) {
+        await startClientMonitor();
+        this.clientMonitorActive = true;
+        console.log('Telegram Client Monitor initialized');
+      } else {
+        console.log('Telegram Client Monitor skipped (missing TG_API_ID/TG_API_HASH)');
+      }
+    } catch (error) {
+      console.error('Failed to initialize Client Monitor:', error);
+      // Continue without client monitoring
     }
 
     try {
@@ -133,9 +149,35 @@ class MonitoringManager {
   getMonitoringStatus(userId) {
     const status = [];
     for (const [channelId, monitorInstance] of this.activeMonitors.entries()) {
-      status.push({ channelId, status: 'active' });
+      status.push({ 
+        channelId, 
+        status: 'active',
+        type: monitorInstance.constructor.name
+      });
     }
-    return status;
+    
+    return {
+      botMonitor: this.telegramMonitor ? 'active' : 'inactive',
+      clientMonitor: this.clientMonitorActive ? 'active' : 'inactive',
+      eitaaMonitor: this.eitaaMonitor ? 'active' : 'inactive',
+      activeChannels: status
+    };
+  }
+
+  async shutdown() {
+    console.log('Shutting down Monitoring Manager...');
+    
+    try {
+      if (this.clientMonitorActive) {
+        await stopClientMonitor();
+        this.clientMonitorActive = false;
+      }
+    } catch (error) {
+      console.error('Error shutting down client monitor:', error);
+    }
+    
+    this.activeMonitors.clear();
+    console.log('Monitoring Manager shutdown complete');
   }
 }
 
