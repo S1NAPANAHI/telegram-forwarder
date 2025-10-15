@@ -93,6 +93,7 @@ const routes = [
   { path: '/api/keywords', file: './routes/keywords' },
   { path: '/api/channels', file: './routes/channels' },
   { path: '/api/destinations', file: './routes/destinations' },
+  { path: '/api/discovery', file: './routes/discovery' },
   { path: '/api/monitoring', file: './routes/monitoring' },
   { path: '/api/logs', file: './routes/logs' },
   { path: '/api/analytics', file: './routes/analytics' }
