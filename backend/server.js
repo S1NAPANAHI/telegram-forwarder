@@ -38,16 +38,10 @@ if (frontendUrl && !allowedOrigins.includes(frontendUrl)) {
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // Fallback - log and deny
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     console.warn(`CORS: Origin ${origin} not allowed`);
-    return callback(new Error('Not allowed by CORS'), false);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
@@ -55,9 +49,9 @@ app.use(cors({
   exposedHeaders: ['set-cookie']
 }));
 
-// Pre-flight handling
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
+// IMPORTANT: Express v5 no longer supports '*' in app.options; handle preflight via cors and a safe route
+app.options('/__preflight__', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,x-telegram-init-data');
@@ -104,8 +98,8 @@ app.get('/health', (req, res) => {
 
 // Routes
 try {
-  app.use('/api/auth', require('./routes/auth.session')); // cookie-based routes first
-  app.use('/api/auth', require('./routes/auth')); // legacy routes
+  app.use('/api/auth', require('./routes/auth.session'));
+  app.use('/api/auth', require('./routes/auth'));
   app.use('/api/auth', require('./routes/auth.webapp'));
   app.use('/api/keywords', require('./routes/keywords'));
   app.use('/api/channels', require('./routes/channels'));
