@@ -24,21 +24,60 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// CORS - allow exact frontend origin and credentials/headers
-const allowedOrigin = process.env.FRONTEND_URL || '*';
+// CORS - Fix credentials issue with specific origin
+const allowedOrigins = [
+  'https://frontend-service-51uy.onrender.com',
+  'http://localhost:3000',
+  'http://localhost:3001'
+];
+
+const frontendUrl = process.env.FRONTEND_URL;
+if (frontendUrl && !allowedOrigins.includes(frontendUrl)) {
+  allowedOrigins.push(frontendUrl);
+}
+
 app.use(cors({
-  origin: allowedOrigin,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Fallback - log and deny
+    console.warn(`CORS: Origin ${origin} not allowed`);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-telegram-init-data']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-telegram-init-data'],
+  exposedHeaders: ['set-cookie']
 }));
 
-app.use(helmet());
+// Pre-flight handling
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,x-telegram-init-data');
+  res.sendStatus(200);
+});
+
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false
+}));
 app.use(morgan('combined'));
 
-// Rate limiting
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+// Rate limiting - more lenient for auth endpoints
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
 app.use(limiter);
+
+// Auth rate limiting (stricter)
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/login-cookie', authLimiter);
 
 // Health check endpoints
 app.get('/', (req, res) => {
@@ -46,7 +85,11 @@ app.get('/', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     message: 'Telegram Forwarder Backend is running',
-    version: '1.0.0'
+    version: '1.0.0',
+    cors: {
+      allowedOrigins,
+      frontendUrl: process.env.FRONTEND_URL
+    }
   });
 });
 
@@ -61,9 +104,9 @@ app.get('/health', (req, res) => {
 
 // Routes
 try {
-  app.use('/api/auth', require('./routes/auth'));
+  app.use('/api/auth', require('./routes/auth.session')); // cookie-based routes first
+  app.use('/api/auth', require('./routes/auth')); // legacy routes
   app.use('/api/auth', require('./routes/auth.webapp'));
-  app.use('/api/auth', require('./routes/auth.session')); // new cookie-based routes
   app.use('/api/keywords', require('./routes/keywords'));
   app.use('/api/channels', require('./routes/channels'));
   app.use('/api/destinations', require('./routes/destinations'));
@@ -99,6 +142,8 @@ const initializeMonitoring = async () => {
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('CORS allowed origins:', allowedOrigins);
+  console.log('Frontend URL from env:', process.env.FRONTEND_URL);
   setTimeout(() => { initializeMonitoring().catch(error => { console.error('Failed to initialize monitoring:', error); }); }, 1000);
 });
 
