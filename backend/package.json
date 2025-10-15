@@ -7,7 +7,8 @@
     "start": "node server.js",
     "build": "npm install",
     "postinstall": "npm install puppeteer && npx puppeteer browsers install chrome",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "audit-fix": "npm audit fix --force"
   },
   "keywords": [],
   "author": "",
@@ -31,7 +32,6 @@
     "puppeteer": "^24.24.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "telegram-bot-api": "^2.0.1",
     "winston": "^3.18.3"
   },
   "devDependencies": {
