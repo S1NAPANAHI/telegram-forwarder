@@ -1,114 +1,120 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const supabase = require('../database/supabase');
 
-function buildUpdate(body){
-  const u = {};
-  if (body.platform !== undefined) u.platform = String(body.platform);
-  if (body.chat_type !== undefined) u.chat_type = String(body.chat_type);
-  if (body.chat_id !== undefined) u.chat_id = String(body.chat_id).trim();
-  if (body.channel_name !== undefined) u.channel_name = body.channel_name?.toString().trim() || null;
-  if (body.username !== undefined) u.username = body.username?.toString().trim() || null;
-  if (body.description !== undefined) u.description = body.description?.toString().trim() || null;
-  if (body.is_active !== undefined) u.is_active = !!body.is_active;
-  if (body.forward_enabled !== undefined) u.forward_enabled = !!body.forward_enabled;
-  if (body.allow_media !== undefined) u.allow_media = !!body.allow_media;
-  if (body.allow_links !== undefined) u.allow_links = !!body.allow_links;
-  if (body.priority !== undefined) u.priority = Number(body.priority) || 0;
-  if (body.last_seen_at !== undefined) u.last_seen_at = body.last_seen_at ? new Date(body.last_seen_at).toISOString() : null;
-  u.updated_at = new Date().toISOString();
-  return u;
-}
-
-// GET /api/channels?active_only=true|false
-router.get('/', auth, async (req, res) => {
+// GET /api/channels - Get all channels for the authenticated user
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const activeOnly = req.query.active_only === 'true';
-    let query = supabase
+    const { data, error } = await supabase
       .from('channels')
       .select('*')
       .eq('user_id', req.user.id)
-      .order('priority', { ascending: false })
       .order('created_at', { ascending: false });
 
-    if (activeOnly) query = query.eq('is_active', true);
-
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Failed to fetch channels' });
+    }
 
     res.json(data || []);
   } catch (err) {
-    console.error('Get channels error:', err);
-    res.status(500).json({ error: 'Failed to fetch channels' });
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// POST /api/channels
-router.post('/', auth, async (req, res) => {
+// POST /api/channels - Create a new channel
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { platform = 'telegram', chat_type = 'channel', chat_id, channel_name, username, description, is_active = true, forward_enabled = true, allow_media = true, allow_links = true, priority = 0 } = req.body;
+    const { channel_id, channel_name, channel_type = 'channel', is_active = true } = req.body;
 
-    if (!chat_id || !String(chat_id).trim()) {
-      return res.status(400).json({ error: 'chat_id is required' });
+    if (!channel_id) {
+      return res.status(400).json({ error: 'Channel ID is required' });
     }
 
-    const payload = {
+    // Check if channel already exists for this user
+    const { data: existing, error: existingError } = await supabase
+      .from('channels')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .eq('channel_id', channel_id)
+      .single();
+
+    if (existing) {
+      return res.status(409).json({ error: 'Channel already exists' });
+    }
+
+    const newChannel = {
       user_id: req.user.id,
-      platform: String(platform),
-      chat_type: String(chat_type),
-      chat_id: String(chat_id).trim(),
-      channel_name: channel_name?.toString().trim() || null,
-      username: username?.toString().trim() || null,
-      description: description?.toString().trim() || null,
-      is_active: !!is_active,
-      forward_enabled: !!forward_enabled,
-      allow_media: !!allow_media,
-      allow_links: !!allow_links,
-      priority: Number(priority) || 0
+      channel_id: String(channel_id).trim(),
+      channel_name: channel_name ? String(channel_name).trim() : null,
+      channel_type,
+      is_active: !!is_active
     };
 
     const { data, error } = await supabase
       .from('channels')
-      .insert([payload])
+      .insert([newChannel])
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('Insert error:', error);
+      return res.status(500).json({ error: 'Failed to create channel' });
+    }
 
     res.status(201).json(data);
   } catch (err) {
-    console.error('Create channel error:', err);
-    res.status(500).json({ error: 'Failed to create channel' });
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// PUT /api/channels/:id
-router.put('/:id', auth, async (req, res) => {
+// PUT /api/channels/:id - Update a channel
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const update = buildUpdate(req.body);
+    const updates = {};
+
+    if (req.body.channel_name !== undefined) {
+      updates.channel_name = req.body.channel_name ? String(req.body.channel_name).trim() : null;
+    }
+    if (req.body.channel_type !== undefined) {
+      updates.channel_type = String(req.body.channel_type);
+    }
+    if (req.body.is_active !== undefined) {
+      updates.is_active = !!req.body.is_active;
+    }
+
+    updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('channels')
-      .update(update)
+      .update(updates)
       .eq('id', id)
       .eq('user_id', req.user.id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
-    if (!data) return res.status(404).json({ error: 'Channel not found' });
+    if (error) {
+      console.error('Update error:', error);
+      return res.status(500).json({ error: 'Failed to update channel' });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
 
     res.json(data);
   } catch (err) {
-    console.error('Update channel error:', err);
-    res.status(500).json({ error: 'Failed to update channel' });
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// DELETE /api/channels/:id
-router.delete('/:id', auth, async (req, res) => {
+// DELETE /api/channels/:id - Delete a channel
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -120,13 +126,19 @@ router.delete('/:id', auth, async (req, res) => {
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
-    if (!data) return res.status(404).json({ error: 'Channel not found' });
+    if (error) {
+      console.error('Delete error:', error);
+      return res.status(500).json({ error: 'Failed to delete channel' });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('Delete channel error:', err);
-    res.status(500).json({ error: 'Failed to delete channel' });
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
