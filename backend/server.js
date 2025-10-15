@@ -94,8 +94,8 @@ routes.forEach(route => {
   }
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler - fixed for Express 5 compatibility
+app.use((req, res) => {
   res.status(404).json({ 
     error: 'Route not found',
     path: req.originalUrl
@@ -109,6 +109,13 @@ app.use((error, req, res, next) => {
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
   });
+});
+
+// Start server
+const server = app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`🚀 Server is running on port ${PORT}`);
+  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown
@@ -126,13 +133,6 @@ process.on('SIGINT', () => {
     logger.info('Process terminated');
     process.exit(0);
   });
-});
-
-// Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`🚀 Server is running on port ${PORT}`);
-  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
 });
 
 // Handle uncaught exceptions
