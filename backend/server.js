@@ -87,9 +87,9 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Routes with improved error handling
+// Routes with logs
 const routes = [
-  { path: '/api/auth', files: ['./routes/auth.session', './routes/auth', './routes/auth.webapp'] },
+  { path: '/api/auth', files: ['./routes/auth.session', './routes/auth', './routes/auth.webapp', './routes/auth.whoami'] },
   { path: '/api/keywords', file: './routes/keywords' },
   { path: '/api/channels', file: './routes/channels' },
   { path: '/api/destinations', file: './routes/destinations' },
@@ -101,7 +101,6 @@ const routes = [
 routes.forEach(route => {
   try {
     if (route.files) {
-      // Multiple files for the same path (auth routes)
       route.files.forEach(file => {
         try {
           app.use(route.path, require(file));
@@ -111,7 +110,6 @@ routes.forEach(route => {
         }
       });
     } else if (route.file) {
-      // Single file
       app.use(route.path, require(route.file));
       console.log(`✓ Loaded route: ${route.path} from ${route.file}`);
     }
@@ -123,22 +121,14 @@ routes.forEach(route => {
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Express error:', error);
-  res.status(500).json({ 
-    error: 'Internal server error', 
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong' 
-  });
+  res.status(500).json({ error: 'Internal server error', message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong' });
 });
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
-    error: 'Not found', 
-    message: `Route ${req.method} ${req.path} not found`,
-    availableRoutes: routes.map(r => r.path)
-  });
+  res.status(404).json({ error: 'Not found', message: `Route ${req.method} ${req.path} not found` });
 });
 
-// Initialize monitoring manager asynchronously after server starts
 const initializeMonitoring = async () => {
   try {
     const monitoringManager = require('./services/monitoringManager');
@@ -149,35 +139,16 @@ const initializeMonitoring = async () => {
   }
 };
 
-// Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log('🌐 CORS allowed origins:', allowedOrigins);
   console.log('🔗 Frontend URL from env:', process.env.FRONTEND_URL);
-  console.log('📊 Analytics endpoints available at /api/analytics/*');
-  
-  // Initialize monitoring after server starts
-  setTimeout(() => { 
-    initializeMonitoring().catch(error => { 
-      console.error('❌ Failed to initialize monitoring:', error.message); 
-    }); 
-  }, 1000);
+  console.log('🔐 JWT secret configured:', !!process.env.JWT_SECRET);
+  setTimeout(() => { initializeMonitoring().catch(error => { console.error('❌ Failed to initialize monitoring:', error.message); }); }, 1000);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => { 
-  console.log('SIGTERM received, shutting down gracefully'); 
-  server.close(() => { 
-    console.log('Process terminated'); 
-  }); 
-});
-
-process.on('SIGINT', () => { 
-  console.log('SIGINT received, shutting down gracefully'); 
-  server.close(() => { 
-    console.log('Process terminated'); 
-  }); 
-});
+process.on('SIGTERM', () => { console.log('SIGTERM received, shutting down gracefully'); server.close(() => { console.log('Process terminated'); }); });
+process.on('SIGINT', () => { console.log('SIGINT received, shutting down gracefully'); server.close(() => { console.log('Process terminated'); }); });
 
 module.exports = app;
