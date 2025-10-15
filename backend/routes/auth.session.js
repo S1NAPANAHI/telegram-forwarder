@@ -23,6 +23,20 @@ function userPayload(user) {
   };
 }
 
+// Test endpoint for debugging
+router.get('/test', (req, res) => {
+  res.json({
+    message: 'Auth test endpoint working',
+    cookies: req.cookies,
+    headers: {
+      authorization: req.headers.authorization,
+      origin: req.headers.origin,
+      'user-agent': req.headers['user-agent']
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // POST /api/auth/login-cookie
 router.post('/login-cookie', async (req, res) => {
   const { email, password } = req.body;
@@ -50,7 +64,7 @@ router.post('/login-cookie', async (req, res) => {
     saveRefreshToken(supaUser.id, refreshToken);
     setRefreshCookie(res, refreshToken);
     
-    console.log('Generated tokens for user:', supaUser.id);
+    console.log('Generated tokens for user:', supaUser.id, 'access token length:', accessToken.length);
 
     res.status(200).json({
       accessToken,
@@ -70,7 +84,7 @@ router.post('/login-cookie', async (req, res) => {
 // GET /api/auth/me 
 router.get('/me', async (req, res) => {
   console.log('GET /me - Headers:', JSON.stringify({
-    authorization: req.headers.authorization,
+    authorization: req.headers.authorization?.substring(0, 50) + '...',
     cookie: req.headers.cookie,
     origin: req.headers.origin
   }));
@@ -92,8 +106,14 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ msg: 'Unauthorized - no token' });
     }
 
-    const decoded = verifyAccessToken(token);
-    console.log('Token decoded successfully for user:', decoded.userId);
+    let decoded;
+    try {
+      decoded = verifyAccessToken(token);
+      console.log('Token decoded successfully for user:', decoded.userId);
+    } catch (verifyErr) {
+      console.log('Token verification failed:', verifyErr.message);
+      throw verifyErr;
+    }
 
     // Try database table lookup first
     let { data: user, error } = await supabase
@@ -136,6 +156,10 @@ router.get('/me', async (req, res) => {
       console.log('Access token expired');
       return res.status(401).json({ code: 'TOKEN_EXPIRED', msg: 'Access expired' });
     }
+    if (e.name === 'JsonWebTokenError') {
+      console.log('JWT malformed');
+      return res.status(401).json({ code: 'INVALID_TOKEN', msg: 'Invalid token format' });
+    }
     return res.status(401).json({ msg: 'Unauthorized - ' + e.message });
   }
 });
@@ -143,6 +167,7 @@ router.get('/me', async (req, res) => {
 // POST /api/auth/refresh
 router.post('/refresh', async (req, res) => {
   console.log('POST /refresh - Cookies:', Object.keys(req.cookies || {}));
+  console.log('POST /refresh - refresh_token present:', !!req.cookies?.refresh_token);
   
   try {
     const { refresh_token } = req.cookies || {};
@@ -151,9 +176,15 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ msg: 'No refresh token' });
     }
 
-    console.log('Found refresh token, verifying...');
-    const decoded = verifyRefreshToken(refresh_token);
-    console.log('Refresh token valid for user:', decoded.userId);
+    console.log('Found refresh token, length:', refresh_token.length, 'verifying...');
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(refresh_token);
+      console.log('Refresh token valid for user:', decoded.userId);
+    } catch (verifyErr) {
+      console.log('Refresh token verification failed:', verifyErr.message);
+      throw verifyErr;
+    }
 
     if (!isValidStoredRefresh(decoded.userId, refresh_token)) {
       console.log('Refresh token not found in store for user:', decoded.userId);
@@ -166,7 +197,7 @@ router.post('/refresh', async (req, res) => {
     setRefreshCookie(res, newRefresh);
 
     const accessToken = signAccessToken({ userId: decoded.userId });
-    console.log('Generated new access token for user:', decoded.userId);
+    console.log('Generated new access token for user:', decoded.userId, 'length:', accessToken.length);
     
     return res.json({ accessToken, expiresIn: ACCESS_EXPIRES_IN });
   } catch (e) {
