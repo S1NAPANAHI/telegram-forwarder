@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const monitoringManager = require('../services/monitoringManager');
 const ChannelService = require('../services/ChannelService');
 
 // @route   POST /api/monitoring/start/:channelId
 // @desc    Start monitoring a specific channel
 // @access  Private
-router.post('/start/:channelId', auth, async (req, res) => {
+router.post('/start/:channelId', authMiddleware, async (req, res) => {
   try {
     const channelId = req.params.channelId;
     const channel = await ChannelService.getChannelById(req.user.id, channelId);
@@ -29,7 +29,7 @@ router.post('/start/:channelId', auth, async (req, res) => {
 // @route   POST /api/monitoring/stop/:channelId
 // @desc    Stop monitoring a specific channel
 // @access  Private
-router.post('/stop/:channelId', auth, async (req, res) => {
+router.post('/stop/:channelId', authMiddleware, async (req, res) => {
   try {
     const channelId = req.params.channelId;
     const channel = await ChannelService.getChannelById(req.user.id, channelId);
@@ -51,7 +51,7 @@ router.post('/stop/:channelId', auth, async (req, res) => {
 // @route   GET /api/monitoring/status
 // @desc    Get status of all monitored channels for the user
 // @access  Private
-router.get('/status', auth, async (req, res) => {
+router.get('/status', authMiddleware, async (req, res) => {
   try {
     const status = monitoringManager.getMonitoringStatus(req.user.id);
     res.json(status);
