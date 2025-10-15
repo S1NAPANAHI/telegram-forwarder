@@ -54,7 +54,8 @@ api.interceptors.response.use(
     
     console.log(`API Error: ${status} ${originalRequest?.url}`, {
       message: error.response?.data?.error || error.message,
-      hasRefreshToken: typeof document !== 'undefined' ? document.cookie.includes('refresh_token') : false
+      hasRefreshToken: typeof document !== 'undefined' ? document.cookie.includes('refresh_token') : false,
+      isRetry: originalRequest._retry
     });
 
     // Only attempt refresh for 401 errors, not on auth endpoints, and not if already retried
@@ -68,14 +69,19 @@ api.interceptors.response.use(
 
       // If already refreshing, queue this request
       if (isRefreshing) {
+        console.log('Token refresh in progress, queueing request...');
         return new Promise((resolve, reject) => {
-          pendingQueue.push({ resolve, reject, config: originalRequest });
-        }).then((token) => {
-          if (token) {
-            setAccessToken(token as string);
-            originalRequest.headers['Authorization'] = `Bearer ${token}`;
-          }
-          return api(originalRequest);
+          pendingQueue.push({ 
+            resolve: (token) => {
+              if (token) {
+                setAccessToken(token as string);
+                originalRequest.headers['Authorization'] = `Bearer ${token}`;
+              }
+              resolve(api(originalRequest));
+            }, 
+            reject, 
+            config: originalRequest 
+          });
         }).catch((err) => {
           return Promise.reject(err);
         });
@@ -106,8 +112,10 @@ api.interceptors.response.use(
         // Only redirect to login if we're in the browser and not already on login page
         if (typeof window !== 'undefined' && 
             !window.location.pathname.includes('/login') &&
+            !window.location.pathname.includes('/register') &&
             !window.location.pathname.includes('/auth/')) {
           const next = encodeURIComponent(window.location.pathname + window.location.search);
+          console.log('Redirecting to login page...');
           Router.replace(`/login?next=${next}`);
         }
         
@@ -117,6 +125,7 @@ api.interceptors.response.use(
       }
     }
 
+    // For non-401 errors or auth endpoints, just reject
     return Promise.reject(error);
   }
 );
