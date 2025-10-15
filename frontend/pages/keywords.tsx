@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../lib/api';
+import { withAuth } from '../lib/withAuth';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
@@ -12,16 +13,11 @@ import {
   EyeIcon,
   EyeSlashIcon,
   MagnifyingGlassIcon,
-  FunnelIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import Layout from '../components/Layout';
 import DataTable from '../components/DataTable';
 import StatCard from '../components/StatCard';
-
-const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-});
 
 interface Keyword {
   _id: string;
@@ -41,7 +37,7 @@ interface KeywordFormData {
   isActive: boolean;
 }
 
-const Keywords: React.FC = () => {
+function Keywords() {
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   
@@ -58,7 +54,7 @@ const Keywords: React.FC = () => {
   const { data: keywords = [], isLoading } = useQuery<Keyword[]>({
     queryKey: ['keywords'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/keywords');
+      const response = await api.get('/api/keywords');
       return response.data.map((keyword: Keyword) => ({
         ...keyword,
         matchesToday: Math.floor(Math.random() * 50),
@@ -69,7 +65,7 @@ const Keywords: React.FC = () => {
 
   // Add keyword mutation
   const addKeywordMutation = useMutation({
-    mutationFn: (data: KeywordFormData) => apiClient.post('/api/keywords', data),
+    mutationFn: (data: KeywordFormData) => api.post('/api/keywords', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['keywords'] });
       resetForm();
@@ -79,7 +75,7 @@ const Keywords: React.FC = () => {
   // Update keyword mutation
   const updateKeywordMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: KeywordFormData }) => 
-      apiClient.put(`/api/keywords/${id}`, data),
+      api.put(`/api/keywords/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['keywords'] });
       resetForm();
@@ -88,7 +84,7 @@ const Keywords: React.FC = () => {
 
   // Delete keyword mutation
   const deleteKeywordMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/keywords/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/keywords/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['keywords'] });
     },
@@ -97,7 +93,7 @@ const Keywords: React.FC = () => {
   // Toggle keyword status
   const toggleKeywordMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => 
-      apiClient.patch(`/api/keywords/${id}/toggle`, { isActive }),
+      api.patch(`/api/keywords/${id}/toggle`, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['keywords'] });
     },
@@ -424,15 +420,12 @@ const Keywords: React.FC = () => {
       </div>
     </Layout>
   );
-};
+}
 
-export default Keywords;
+export default withAuth(Keywords);
 
-export const getStaticProps: GetStaticProps = async ({ locale }) => {
-  const lng = locale || 'fa';
-  return {
-    props: {
-      ...(await serverSideTranslations(lng, ['common'])),
-    },
-  };
-};
+export const getStaticProps: GetStaticProps = async ({ locale }) => ({
+  props: {
+    ...(await serverSideTranslations(locale || 'fa', ['common'])),
+  },
+});
