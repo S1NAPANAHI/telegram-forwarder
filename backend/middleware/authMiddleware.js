@@ -61,13 +61,13 @@ const authMiddleware = async (req, res, next) => {
       .eq('id', decoded.userId)
       .single();
 
-    // If not found, fallback to supabase.auth.getUser
+    // If not found, fallback to supabase.auth.getUser and auto-create user record
     if (error || !user) {
       console.log('AuthMiddleware: User not found in table, trying auth API for:', decoded.userId);
       try {
         const { data: authData, error: authError } = await supabase.auth.admin.getUserById(decoded.userId);
         if (authData?.user) {
-          user = {
+          const userData = {
             id: authData.user.id,
             email: authData.user.email,
             username: authData.user.user_metadata?.username || null,
@@ -78,11 +78,41 @@ const authMiddleware = async (req, res, next) => {
             language: 'fa',
             is_active: true
           };
-          console.log('AuthMiddleware: Found user via auth API:', user.email);
+          console.log('AuthMiddleware: Found user via auth API:', userData.email);
+          
+          // Auto-create user record in users table to prevent FK constraint errors
+          console.log('AuthMiddleware: Creating user record in users table...');
+          const { data: upserted, error: upsertError } = await supabase
+            .from('users')
+            .upsert({
+              id: userData.id,
+              email: userData.email,
+              username: userData.username || null,
+              telegram_id: userData.telegram_id || null,
+              first_name: userData.first_name || null,
+              last_name: userData.last_name || null,
+              role: userData.role || 'user',
+              language: userData.language || 'fa',
+              is_active: userData.is_active !== false,
+              created_at: new Date().toISOString(),
+              last_login: new Date().toISOString()
+            }, { onConflict: 'id' })
+            .select('id, email, username, telegram_id, first_name, last_name, role, language, is_active')
+            .single();
+
+          if (upsertError) {
+            console.warn('AuthMiddleware: users upsert warning:', upsertError.message);
+            // Continue with userData even if upsert fails
+            user = userData;
+          } else {
+            console.log('AuthMiddleware: User record created/updated successfully');
+            user = upserted;
+          }
         }
       } catch (authErr) {
         console.error('AuthMiddleware: Auth API error:', authErr);
       }
+      
       if (!user) {
         console.log('AuthMiddleware: User not found anywhere for:', decoded.userId);
         return res.status(401).json({ 
@@ -92,6 +122,16 @@ const authMiddleware = async (req, res, next) => {
       }
     } else {
       console.log('AuthMiddleware: Found user in table:', user.email);
+      
+      // Update last_login for existing users
+      try {
+        await supabase
+          .from('users')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', user.id);
+      } catch (updateErr) {
+        console.warn('AuthMiddleware: Failed to update last_login:', updateErr.message);
+      }
     }
 
     // Check if user is active
