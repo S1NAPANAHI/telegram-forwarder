@@ -61,7 +61,7 @@ router.post('/login-cookie', async (req, res) => {
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken({ userId: supaUser.id });
 
-    saveRefreshToken(supaUser.id, refreshToken);
+    await saveRefreshToken(supaUser.id, refreshToken);
     setRefreshCookie(res, refreshToken);
     
     console.log('Generated tokens for user:', supaUser.id, 'access token length:', accessToken.length);
@@ -234,7 +234,9 @@ router.post('/refresh', async (req, res) => {
       throw verifyErr;
     }
 
-    if (!isValidStoredRefresh(decoded.userId, refresh_token)) {
+    // Await the async validation
+    const isValid = await isValidStoredRefresh(decoded.userId, refresh_token);
+    if (!isValid) {
       console.log('Refresh token not found in store for user:', decoded.userId);
       return res.status(401).json({ 
         error: 'Refresh token not recognized. Please login again.',
@@ -277,7 +279,7 @@ router.post('/refresh', async (req, res) => {
 
     // Rotate refresh token
     const newRefresh = signRefreshToken({ userId: decoded.userId });
-    rotateRefreshToken(decoded.userId, newRefresh);
+    await rotateRefreshToken(decoded.userId, newRefresh);
     setRefreshCookie(res, newRefresh);
 
     // Generate new access token with user info
@@ -315,7 +317,7 @@ router.post('/logout', async (req, res) => {
     if (refresh_token) {
       try {
         const decoded = verifyRefreshToken(refresh_token);
-        revokeRefreshToken(decoded.userId);
+        await revokeRefreshToken(decoded.userId);
         console.log('Revoked refresh token for user:', decoded.userId);
       } catch (e) {
         console.log('Error revoking refresh token (non-critical):', e.message);
