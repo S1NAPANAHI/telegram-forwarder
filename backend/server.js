@@ -87,29 +87,55 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Routes
-try {
-  app.use('/api/auth', require('./routes/auth.session'));
-  app.use('/api/auth', require('./routes/auth'));
-  app.use('/api/auth', require('./routes/auth.webapp'));
-  app.use('/api/keywords', require('./routes/keywords'));
-  app.use('/api/channels', require('./routes/channels'));
-  app.use('/api/destinations', require('./routes/destinations'));
-  app.use('/api/monitoring', require('./routes/monitoring'));
-  app.use('/api/logs', require('./routes/logs'));
-} catch (routeError) {
-  console.error('Error loading routes:', routeError);
-}
+// Routes with improved error handling
+const routes = [
+  { path: '/api/auth', files: ['./routes/auth.session', './routes/auth', './routes/auth.webapp'] },
+  { path: '/api/keywords', file: './routes/keywords' },
+  { path: '/api/channels', file: './routes/channels' },
+  { path: '/api/destinations', file: './routes/destinations' },
+  { path: '/api/monitoring', file: './routes/monitoring' },
+  { path: '/api/logs', file: './routes/logs' },
+  { path: '/api/analytics', file: './routes/analytics' }
+];
+
+routes.forEach(route => {
+  try {
+    if (route.files) {
+      // Multiple files for the same path (auth routes)
+      route.files.forEach(file => {
+        try {
+          app.use(route.path, require(file));
+          console.log(`✓ Loaded route: ${route.path} from ${file}`);
+        } catch (fileError) {
+          console.error(`✗ Failed to load route ${file} for ${route.path}:`, fileError.message);
+        }
+      });
+    } else if (route.file) {
+      // Single file
+      app.use(route.path, require(route.file));
+      console.log(`✓ Loaded route: ${route.path} from ${route.file}`);
+    }
+  } catch (routeError) {
+    console.error(`✗ Failed to load route ${route.path}:`, routeError.message);
+  }
+});
 
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Express error:', error);
-  res.status(500).json({ error: 'Internal server error', message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong' });
+  res.status(500).json({ 
+    error: 'Internal server error', 
+    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong' 
+  });
 });
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found', message: `Route ${req.method} ${req.path} not found` });
+  res.status(404).json({ 
+    error: 'Not found', 
+    message: `Route ${req.method} ${req.path} not found`,
+    availableRoutes: routes.map(r => r.path)
+  });
 });
 
 // Initialize monitoring manager asynchronously after server starts
@@ -117,23 +143,41 @@ const initializeMonitoring = async () => {
   try {
     const monitoringManager = require('./services/monitoringManager');
     await monitoringManager.initialize();
-    console.log('Monitoring services initialized successfully');
+    console.log('✓ Monitoring services initialized successfully');
   } catch (error) {
-    console.error('Warning: Some monitoring services failed to initialize:', error);
+    console.error('⚠ Warning: Some monitoring services failed to initialize:', error.message);
   }
 };
 
 // Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log('CORS allowed origins:', allowedOrigins);
-  console.log('Frontend URL from env:', process.env.FRONTEND_URL);
-  setTimeout(() => { initializeMonitoring().catch(error => { console.error('Failed to initialize monitoring:', error); }); }, 1000);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log('🌐 CORS allowed origins:', allowedOrigins);
+  console.log('🔗 Frontend URL from env:', process.env.FRONTEND_URL);
+  console.log('📊 Analytics endpoints available at /api/analytics/*');
+  
+  // Initialize monitoring after server starts
+  setTimeout(() => { 
+    initializeMonitoring().catch(error => { 
+      console.error('❌ Failed to initialize monitoring:', error.message); 
+    }); 
+  }, 1000);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => { console.log('SIGTERM received, shutting down gracefully'); server.close(() => { console.log('Process terminated'); }); });
-process.on('SIGINT', () => { console.log('SIGINT received, shutting down gracefully'); server.close(() => { console.log('Process terminated'); }); });
+process.on('SIGTERM', () => { 
+  console.log('SIGTERM received, shutting down gracefully'); 
+  server.close(() => { 
+    console.log('Process terminated'); 
+  }); 
+});
+
+process.on('SIGINT', () => { 
+  console.log('SIGINT received, shutting down gracefully'); 
+  server.close(() => { 
+    console.log('Process terminated'); 
+  }); 
+});
 
 module.exports = app;
