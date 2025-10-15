@@ -29,7 +29,6 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const isRefreshingRef = useRef(false);
   const mountedRef = useRef(true);
 
   // Cleanup on unmount
@@ -48,51 +47,15 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
   };
 
-  const tryRefresh = async () => {
-    if (isRefreshingRef.current) {
-      console.log('AuthContext: Refresh already in progress, skipping');
-      return false;
-    }
-
-    isRefreshingRef.current = true;
-    try {
-      console.log('AuthContext: Attempting refresh...');
-      const res = await api.post('/api/auth/refresh');
-      if (res.data?.accessToken) {
-        console.log('AuthContext: Refresh successful, setting new access token');
-        setAccessToken(res.data.accessToken);
-        return true;
-      }
-      return false;
-    } catch (refreshErr: any) {
-      console.log('AuthContext: Refresh failed:', refreshErr?.response?.data?.error || refreshErr.message);
-      return false;
-    } finally {
-      isRefreshingRef.current = false;
-    }
-  };
-
   const refresh = async () => {
     if (!mountedRef.current) return;
 
+    setLoading(true);
     try {
       await fetchMe();
     } catch (e: any) {
-      console.log('AuthContext: /me failed:', e?.response?.status, e?.response?.data?.error);
-      
-      if (e?.response?.status === 401 && mountedRef.current) {
-        const refreshed = await tryRefresh();
-        if (refreshed && mountedRef.current) {
-          try {
-            await fetchMe();
-          } catch (fetchErr) {
-            console.log('AuthContext: Fetch after refresh failed:', fetchErr);
-            setUser(null);
-          }
-        } else if (mountedRef.current) {
-          setUser(null);
-        }
-      } else if (mountedRef.current) {
+      console.log('AuthContext: /me failed, user will be logged out:', e?.response?.data?.error || e.message);
+      if (mountedRef.current) {
         setUser(null);
       }
     } finally {
