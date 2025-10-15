@@ -1,5 +1,5 @@
 // Centralized API client for frontend
-import axios from 'axios';
+import axios, { AxiosRequestHeaders } from 'axios';
 import Router from 'next/router';
 
 const api = axios.create({
@@ -12,8 +12,9 @@ api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+      const headers: AxiosRequestHeaders = (config.headers as AxiosRequestHeaders) || {};
+      headers.Authorization = `Bearer ${token}`;
+      config.headers = headers;
     }
   }
   return config;
