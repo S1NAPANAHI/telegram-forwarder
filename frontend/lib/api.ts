@@ -29,7 +29,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   // Log request for debugging
   console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
     hasAuth: !!inMemoryAccessToken,
-    hasCookies: document.cookie.includes('refresh_token')
+    hasCookies: typeof document !== 'undefined' ? document.cookie.includes('refresh_token') : false
   });
   
   return config;
@@ -54,23 +54,35 @@ api.interceptors.response.use(
     
     console.log(`API Error: ${status} ${originalRequest?.url}`, {
       message: error.response?.data?.error || error.message,
-      hasRefreshToken: document.cookie.includes('refresh_token')
+      hasRefreshToken: typeof document !== 'undefined' ? document.cookie.includes('refresh_token') : false
     });
 
-    if (status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/')) {
+    // Only attempt refresh for 401 errors, not on auth endpoints, and not if already retried
+    if (status === 401 && 
+        !originalRequest._retry && 
+        !originalRequest.url?.includes('/auth/refresh') &&
+        !originalRequest.url?.includes('/auth/login') &&
+        !originalRequest.url?.includes('/auth/logout')) {
+      
       originalRequest._retry = true;
 
+      // If already refreshing, queue this request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           pendingQueue.push({ resolve, reject, config: originalRequest });
         }).then((token) => {
-          if (token) setAccessToken(token as string);
-          if (token) originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          if (token) {
+            setAccessToken(token as string);
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          }
           return api(originalRequest);
+        }).catch((err) => {
+          return Promise.reject(err);
         });
       }
 
       isRefreshing = true;
+      
       try {
         console.log('Attempting token refresh...');
         const { data } = await api.post('/api/auth/refresh');
@@ -79,6 +91,8 @@ api.interceptors.response.use(
           console.log('Token refresh successful');
           setAccessToken(data.accessToken);
           processQueue(null, data.accessToken);
+          
+          // Retry original request with new token
           originalRequest.headers['Authorization'] = `Bearer ${data.accessToken}`;
           return api(originalRequest);
         } else {
@@ -90,7 +104,9 @@ api.interceptors.response.use(
         setAccessToken(null);
         
         // Only redirect to login if we're in the browser and not already on login page
-        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        if (typeof window !== 'undefined' && 
+            !window.location.pathname.includes('/login') &&
+            !window.location.pathname.includes('/auth/')) {
           const next = encodeURIComponent(window.location.pathname + window.location.search);
           Router.replace(`/login?next=${next}`);
         }
