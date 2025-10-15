@@ -140,13 +140,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <LanguageSwitcher />
                   <Menu as="div" className="relative">
                     <Menu.Button className="flex items-center space-x-2 p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                      {user?.avatar ? (
-                        <img src={user.avatar as any} alt={user.username || 'user'} className="h-8 w-8 rounded-full" />
-                      ) : (
-                        <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
-                          <UserIcon className="h-5 w-5 text-white" />
-                        </div>
-                      )}
+                      <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                        <UserIcon className="h-5 w-5 text-white" />
+                      </div>
                       <div className="hidden md:block text-left">
                         <p className="text-sm font-medium">{user?.username || t('user')}</p>
                         {user?.telegramId && (
