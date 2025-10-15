@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
 import Layout from '../components/Layout';
+import { withAuth } from '../lib/withAuth';
 
 interface Channel {
   _id: string;
@@ -17,7 +18,7 @@ interface Channel {
   createdAt: string;
 }
 
-export default function Channels() {
+function Channels() {
   const { t } = useTranslation('common');
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -28,26 +29,19 @@ export default function Channels() {
   const [newChannelName, setNewChannelName] = useState('');
   const [error, setError] = useState('');
 
-  // Redirect if not authenticated
-  if (!authLoading && !user) {
-    router.push('/login');
-    return null;
-  }
-
   // Fetch channels
   const { data: channels, isLoading: channelsLoading, error: channelsError } = useQuery<Channel[]>({
     queryKey: ['channels'],
     queryFn: async () => {
-      const response = await axios.get('/api/channels');
+      const response = await api.get('/api/channels');
       return response.data;
     },
-    enabled: !!user, // Only fetch if user is authenticated
   });
 
   // Add channel mutation
   const addChannelMutation = useMutation({
     mutationFn: (channelData: { channelUrl: string; platform: 'telegram' | 'eitaa' | 'website'; channelName?: string }) =>
-      axios.post('/api/channels', channelData),
+      api.post('/api/channels', channelData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       setNewChannelUrl('');
@@ -61,7 +55,7 @@ export default function Channels() {
 
   // Delete channel mutation
   const deleteChannelMutation = useMutation({
-    mutationFn: (id: string) => axios.delete(`/api/channels/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/channels/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
     },
@@ -70,18 +64,7 @@ export default function Channels() {
     },
   });
 
-  const handleAddChannel = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newChannelUrl.trim()) {
-      addChannelMutation.mutate({
-        channelUrl: newChannelUrl.trim(),
-        platform: newChannelPlatform,
-        channelName: newChannelName.trim() || undefined,
-      });
-    }
-  };
-
-  if (authLoading || !user) return <Layout><div>{t('loading')}</div></Layout>;
+  if (authLoading) return <Layout><div>{t('loading')}</div></Layout>;
   if (channelsLoading) return <Layout><div>{t('loadingChannels')}</div></Layout>;
   if (channelsError) return <Layout><div>{t('errorLoadingChannels')}{(channelsError as Error).message}</div></Layout>;
 
@@ -94,7 +77,7 @@ export default function Channels() {
         </div>
 
         {/* Add Channel Form */}
-        <form onSubmit={handleAddChannel} className="mb-8 p-4 border rounded-lg shadow-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+        <form onSubmit={(e) => { e.preventDefault(); if (newChannelUrl.trim()) { addChannelMutation.mutate({ channelUrl: newChannelUrl.trim(), platform: newChannelPlatform, channelName: newChannelName.trim() || undefined }); } }} className="mb-8 p-4 border rounded-lg shadow-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('addNewChannel')}</h2>
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -174,6 +157,8 @@ export default function Channels() {
     </Layout>
   );
 }
+
+export default withAuth(Channels);
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => ({
   props: {
