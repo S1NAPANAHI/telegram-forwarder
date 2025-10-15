@@ -5,7 +5,6 @@ process.on('uncaughtException', (error) => {
     return;
   }
   console.error('Uncaught Exception:', error);
-  // Don't exit on uncaught exceptions in production
   if (process.env.NODE_ENV !== 'production') {
     process.exit(1);
   }
@@ -22,18 +21,24 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+
+// CORS - allow exact frontend origin and credentials/headers
+const allowedOrigin = process.env.FRONTEND_URL || '*';
+app.use(cors({
+  origin: allowedOrigin,
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-telegram-init-data']
+}));
+
 app.use(helmet());
 app.use(morgan('combined'));
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
-});
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use(limiter);
 
-// Health check endpoints (before routes)
+// Health check endpoints
 app.get('/', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
@@ -52,10 +57,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Routes with error handling
+// Routes
 try {
   app.use('/api/auth', require('./routes/auth'));
-  app.use('/api/auth/telegram-webapp', require('./routes/telegram-webapp'));
+  app.use('/api/auth', require('./routes/auth.webapp'));
   app.use('/api/keywords', require('./routes/keywords'));
   app.use('/api/channels', require('./routes/channels'));
   app.use('/api/destinations', require('./routes/destinations'));
@@ -63,24 +68,17 @@ try {
   app.use('/api/logs', require('./routes/logs'));
 } catch (routeError) {
   console.error('Error loading routes:', routeError);
-  // Continue without some routes if there's an issue
 }
 
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Express error:', error);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
-  });
+  res.status(500).json({ error: 'Internal server error', message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong' });
 });
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    message: `Route ${req.method} ${req.path} not found`
-  });
+  res.status(404).json({ error: 'Not found', message: `Route ${req.method} ${req.path} not found` });
 });
 
 // Initialize monitoring manager asynchronously after server starts
@@ -91,7 +89,6 @@ const initializeMonitoring = async () => {
     console.log('Monitoring services initialized successfully');
   } catch (error) {
     console.error('Warning: Some monitoring services failed to initialize:', error);
-    // Don't exit - let the HTTP server continue running
   }
 };
 
@@ -99,26 +96,11 @@ const initializeMonitoring = async () => {
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  setTimeout(() => {
-    initializeMonitoring().catch(error => {
-      console.error('Failed to initialize monitoring:', error);
-    });
-  }, 1000);
+  setTimeout(() => { initializeMonitoring().catch(error => { console.error('Failed to initialize monitoring:', error); }); }, 1000);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
-  });
-});
+process.on('SIGTERM', () => { console.log('SIGTERM received, shutting down gracefully'); server.close(() => { console.log('Process terminated'); }); });
+process.on('SIGINT', () => { console.log('SIGINT received, shutting down gracefully'); server.close(() => { console.log('Process terminated'); }); });
 
 module.exports = app;
