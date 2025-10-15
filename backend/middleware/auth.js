@@ -65,13 +65,13 @@ const jwtAuth = async (req, res, next) => {
         .eq('id', decoded.userId)
         .single();
 
-      // If not found in users table, try auth API as fallback
+      // If not found in users table, try auth API as fallback and auto-create user record
       if (error || !userData) {
         console.log(`[jwtAuth] User not found in table, trying auth API for: ${decoded.userId}`);
         try {
           const { data: authData, error: authError } = await supabase.auth.admin.getUserById(decoded.userId);
           if (authData?.user) {
-            userData = {
+            const newUserData = {
               id: authData.user.id,
               email: authData.user.email,
               username: authData.user.user_metadata?.username || null,
@@ -82,7 +82,35 @@ const jwtAuth = async (req, res, next) => {
               language: 'fa',
               is_active: true
             };
-            console.log(`[jwtAuth] Found user via auth API: ${userData.email}`);
+            console.log(`[jwtAuth] Found user via auth API: ${newUserData.email}`);
+            
+            // Auto-create user record in users table
+            console.log('[jwtAuth] Creating user record in users table...');
+            const { data: upserted, error: upsertError } = await supabase
+              .from('users')
+              .upsert({
+                id: newUserData.id,
+                email: newUserData.email,
+                username: newUserData.username || null,
+                telegram_id: newUserData.telegram_id || null,
+                first_name: newUserData.first_name || null,
+                last_name: newUserData.last_name || null,
+                role: newUserData.role || 'user',
+                language: newUserData.language || 'fa',
+                is_active: newUserData.is_active !== false,
+                created_at: new Date().toISOString(),
+                last_login: new Date().toISOString()
+              }, { onConflict: 'id' })
+              .select('*')
+              .single();
+
+            if (upsertError) {
+              console.warn('[jwtAuth] users upsert warning:', upsertError.message);
+              userData = newUserData;
+            } else {
+              console.log('[jwtAuth] User record created/updated successfully');
+              userData = upserted;
+            }
           }
         } catch (authErr) {
           console.error('[jwtAuth] Auth API error:', authErr);
