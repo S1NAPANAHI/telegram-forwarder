@@ -11,6 +11,7 @@ const { refreshCookieOptions, clearCookieOptions } = require('../utils/cookies')
 // Helpers
 function setRefreshCookie(res, refreshToken) {
   res.cookie('refresh_token', refreshToken, refreshCookieOptions(REFRESH_EXPIRES_DAYS));
+  console.log('Set refresh cookie for', REFRESH_EXPIRES_DAYS, 'days');
 }
 
 function userPayload(user) {
@@ -22,23 +23,43 @@ function userPayload(user) {
   };
 }
 
-// POST /api/auth/login (cookie-based)
+// POST /api/auth/login-cookie
 router.post('/login-cookie', async (req, res) => {
   const { email, password } = req.body;
+  console.log('Login attempt for:', email);
+  
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return res.status(400).json({ msg: error.message });
-    // We will build our own app tokens from supabase user
+    if (error) {
+      console.log('Supabase login error:', error.message);
+      return res.status(400).json({ msg: error.message });
+    }
+
     const supaUser = data.user;
-    const payload = { userId: supaUser.id, email: supaUser.email, username: (supaUser.user_metadata||{}).username };
+    console.log('Supabase user logged in:', supaUser.id, supaUser.email);
+    
+    const payload = { 
+      userId: supaUser.id, 
+      email: supaUser.email, 
+      username: (supaUser.user_metadata || {}).username 
+    };
+
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken({ userId: supaUser.id });
+
     saveRefreshToken(supaUser.id, refreshToken);
     setRefreshCookie(res, refreshToken);
+    
+    console.log('Generated tokens for user:', supaUser.id);
+
     res.status(200).json({
       accessToken,
       expiresIn: ACCESS_EXPIRES_IN,
-      user: { id: supaUser.id, email: supaUser.email, username: (supaUser.user_metadata||{}).username }
+      user: { 
+        id: supaUser.id, 
+        email: supaUser.email, 
+        username: (supaUser.user_metadata || {}).username 
+      }
     });
   } catch (e) {
     console.error('login-cookie error:', e);
@@ -46,59 +67,111 @@ router.post('/login-cookie', async (req, res) => {
   }
 });
 
-// GET /api/auth/me (cookie-based access token or Authorization, fallback to supabase auth if not found in users table)
+// GET /api/auth/me 
 router.get('/me', async (req, res) => {
+  console.log('GET /me - Headers:', JSON.stringify({
+    authorization: req.headers.authorization,
+    cookie: req.headers.cookie,
+    origin: req.headers.origin
+  }));
+  
   try {
     let token = null;
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.substring(7);
-    if (!token && req.cookies && req.cookies.access_token) token = req.cookies.access_token;
-    if (!token) return res.status(401).json({ msg: 'Unauthorized' });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+      console.log('Found Bearer token, length:', token.length);
+    }
+    if (!token && req.cookies && req.cookies.access_token) {
+      token = req.cookies.access_token;
+      console.log('Found access_token cookie, length:', token.length);
+    }
+
+    if (!token) {
+      console.log('No token found in request');
+      return res.status(401).json({ msg: 'Unauthorized - no token' });
+    }
+
     const decoded = verifyAccessToken(token);
-    // Try database table lookup
+    console.log('Token decoded successfully for user:', decoded.userId);
+
+    // Try database table lookup first
     let { data: user, error } = await supabase
       .from('users')
       .select('id, email, username, telegram_id, first_name, last_name')
       .eq('id', decoded.userId)
       .single();
+
     // If not found, fallback to supabase.auth.getUser
     if (error || !user) {
+      console.log('User not found in table, trying auth API for:', decoded.userId);
       try {
-        const supaResp = await supabase.auth.admin.getUserById(decoded.userId);
-        user = supaResp?.user ? {
-          id: supaResp.user.id,
-          email: supaResp.user.email,
-          username: supaResp.user.user_metadata?.username || null,
-          telegram_id: null,
-        } : null;
-      } catch {}
-      if (!user) return res.status(401).json({ msg: 'User not found' });
+        const { data: authData, error: authError } = await supabase.auth.admin.getUserById(decoded.userId);
+        if (authData?.user) {
+          user = {
+            id: authData.user.id,
+            email: authData.user.email,
+            username: authData.user.user_metadata?.username || null,
+            telegram_id: null,
+            first_name: authData.user.user_metadata?.first_name || null,
+            last_name: authData.user.user_metadata?.last_name || null
+          };
+          console.log('Found user via auth API:', user.email);
+        }
+      } catch (authErr) {
+        console.error('Auth API error:', authErr);
+      }
+      if (!user) {
+        console.log('User not found anywhere for:', decoded.userId);
+        return res.status(401).json({ msg: 'User not found' });
+      }
+    } else {
+      console.log('Found user in table:', user.email);
     }
+
     return res.json(user);
   } catch (e) {
-    if (e.name === 'TokenExpiredError') return res.status(401).json({ code: 'TOKEN_EXPIRED', msg: 'Access expired' });
-    return res.status(401).json({ msg: 'Unauthorized' });
+    console.error('/me error:', e.message);
+    if (e.name === 'TokenExpiredError') {
+      console.log('Access token expired');
+      return res.status(401).json({ code: 'TOKEN_EXPIRED', msg: 'Access expired' });
+    }
+    return res.status(401).json({ msg: 'Unauthorized - ' + e.message });
   }
 });
 
 // POST /api/auth/refresh
 router.post('/refresh', async (req, res) => {
+  console.log('POST /refresh - Cookies:', Object.keys(req.cookies || {}));
+  
   try {
     const { refresh_token } = req.cookies || {};
-    if (!refresh_token) return res.status(401).json({ msg: 'No refresh token' });
+    if (!refresh_token) {
+      console.log('No refresh token found in cookies');
+      return res.status(401).json({ msg: 'No refresh token' });
+    }
+
+    console.log('Found refresh token, verifying...');
     const decoded = verifyRefreshToken(refresh_token);
+    console.log('Refresh token valid for user:', decoded.userId);
+
     if (!isValidStoredRefresh(decoded.userId, refresh_token)) {
+      console.log('Refresh token not found in store for user:', decoded.userId);
       return res.status(401).json({ msg: 'Invalid refresh token' });
     }
+
     // rotate refresh
     const newRefresh = signRefreshToken({ userId: decoded.userId });
     rotateRefreshToken(decoded.userId, newRefresh);
     setRefreshCookie(res, newRefresh);
+
     const accessToken = signAccessToken({ userId: decoded.userId });
+    console.log('Generated new access token for user:', decoded.userId);
+    
     return res.json({ accessToken, expiresIn: ACCESS_EXPIRES_IN });
   } catch (e) {
     console.error('refresh error:', e.message);
-    return res.status(401).json({ msg: 'Refresh failed' });
+    return res.status(401).json({ msg: 'Refresh failed - ' + e.message });
   }
 });
 
@@ -110,11 +183,16 @@ router.post('/logout', async (req, res) => {
       try {
         const decoded = verifyRefreshToken(refresh_token);
         revokeRefreshToken(decoded.userId);
-      } catch {}
+        console.log('Revoked refresh token for user:', decoded.userId);
+      } catch (e) {
+        console.log('Error revoking refresh token:', e.message);
+      }
     }
     res.clearCookie('refresh_token', clearCookieOptions());
+    console.log('Cleared refresh cookie');
     return res.json({ ok: true });
   } catch (e) {
+    console.error('logout error:', e);
     return res.json({ ok: true });
   }
 });
