@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
@@ -16,6 +16,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { loginWithEmail } = useAuth();
   const next = typeof router.query.next === 'string' ? router.query.next : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,16 +25,10 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await api.post('/api/auth/login', { email, password });
-      localStorage.setItem('token', res.data.token);
-      
-      if (next) {
-        router.replace(next);
-      } else {
-        router.replace('/dashboard');
-      }
+      await loginWithEmail(email, password);
+      if (next) router.replace(next); else router.replace('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.msg || t('loginFailed'));
+      setError(err?.response?.data?.msg || t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -44,10 +39,7 @@ export default function Login() {
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5 dark:opacity-10">
         <div className="absolute inset-0" style={{
-          backgroundImage: `
-            linear-gradient(rgba(36, 161, 222, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(36, 161, 222, 0.1) 1px, transparent 1px)
-          `,
+          backgroundImage: `\n            linear-gradient(rgba(36, 161, 222, 0.1) 1px, transparent 1px),\n            linear-gradient(90deg, rgba(36, 161, 222, 0.1) 1px, transparent 1px)\n          `,
           backgroundSize: '20px 20px'
         }} />
       </div>
