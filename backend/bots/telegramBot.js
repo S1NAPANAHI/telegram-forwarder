@@ -10,28 +10,41 @@ const { forwardMessage, checkDuplicate } = require('../services/forwardingServic
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://frontend-service-51uy.onrender.com';
 const WEBAPP_URL = `${FRONTEND_URL}/webapp`;
 
-// ... strings and helpers unchanged ...
-
 class TelegramMonitor {
+  static instance = null;
+
   constructor() {
-    this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { 
-      polling: true,
-      onlyFirstMatch: false
-    });
+    if (TelegramMonitor.instance) return TelegramMonitor.instance;
+
+    this.webhookUrl = process.env.TELEGRAM_WEBHOOK_URL || 'https://backend-service-idry.onrender.com/api/bot/webhook';
+    this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
     this.monitoredChannels = new Map();
     this.chatDiscovery = new ChatDiscoveryService(this.bot);
-    this.setupCommandHandlers();
-    this.setupMessageHandlers();
-  }
 
-  // ... other methods unchanged ...
+    TelegramMonitor.instance = this;
+  }
 
   async initialize() {
     try {
-      const botInfo = await this.bot.getMe();
-      console.log(`Telegram bot connected: @${botInfo.username}`);
+      const me = await this.bot.getMe();
+      console.log(`Telegram bot connected: @${me.username}`);
 
-      // 1) Native Telegram commands menu
+      // Reset webhook to our URL
+      try {
+        await this.bot.deleteWebHook({ drop_pending_updates: false });
+        console.log('Webhook deleted (cleanup)');
+      } catch (e) {
+        console.warn('deleteWebHook warn:', e?.message || e);
+      }
+
+      try {
+        await this.bot.setWebHook(this.webhookUrl);
+        console.log('Webhook set OK →', this.webhookUrl);
+      } catch (e) {
+        console.error('setWebHook failed:', e?.message || e);
+      }
+
+      // Register commands menu
       try {
         await this.bot.setMyCommands([
           { command: 'start', description: 'Start using the bot' },
@@ -44,54 +57,114 @@ class TelegramMonitor {
         ]);
         console.log('✓ Registered bot commands');
       } catch (e) {
-        console.error('Failed to set bot commands:', e?.message || e);
+        console.error('setMyCommands failed:', e?.message || e);
       }
 
-      // 2) Chat menu button (keeps web app entry)
+      // Chat menu button for Web App
       try {
-        await this.bot.setChatMenuButton({ 
-          menu_button: { type: 'web_app', text: 'Open Panel', web_app: { url: WEBAPP_URL } } 
-        });
-        console.log('✓ Set chat menu button to Web App');
-      } catch (e) { console.error('Failed to set menu button:', e?.message || e); }
-
-      console.log('⚠️  IMPORTANT: Ensure bot privacy mode is disabled in BotFather (/setprivacy → Disable) to read group messages.');
+        await this.bot.setChatMenuButton({ menu_button: { type: 'web_app', text: 'Open Panel', web_app: { url: WEBAPP_URL } } });
+        console.log('✓ Set chat menu button');
+      } catch (e) {
+        console.error('setChatMenuButton failed:', e?.message || e);
+      }
 
       // Load monitored channels
-      let channels = [];
-      try { channels = await ChannelService.getActiveChannelsByPlatform('telegram'); }
-      catch (e) { console.error('Error fetching channels:', e); }
-
-      for (const channel of channels) {
-        await this.startMonitoringChannel(channel);
+      try {
+        const channels = await ChannelService.getActiveChannelsByPlatform('telegram');
+        for (const channel of channels) await this.startMonitoringChannel(channel);
+      } catch (e) {
+        console.error('Channel load failed:', e?.message || e);
       }
 
-      console.log('Telegram Monitor initialized successfully');
+      console.log('Telegram Monitor initialized (webhook mode)');
     } catch (error) {
       console.error('Failed to initialize Telegram Monitor:', error);
     }
   }
 
-  setupCommandHandlers() {
-    // existing command handlers ...
-
-    // NEW: /menu quick-reply keyboard
-    this.bot.onText(/\/menu/, async (msg) => {
-      const chatId = msg.chat.id;
-      const keyboard = {
-        keyboard: [
-          [{ text: '/help' }, { text: '/status' }],
-          [{ text: '/discover' }, { text: '/webapp' }],
-          [{ text: '/language' }]
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false
-      };
-      await this.safeSend(chatId, 'Choose an action:', { reply_markup: keyboard });
-    });
+  async startMonitoringChannel(channel) {
+    try {
+      const chatId = channel.platform_specific_id || this.extractChatIdFromUrl(channel.channel_url);
+      this.monitoredChannels.set(chatId.toString(), { channelId: channel.id, userId: channel.user_id, name: channel.name || channel.channel_name });
+      console.log(`Monitoring: ${channel.channel_name} (${chatId})`);
+    } catch (e) {
+      console.error('startMonitoringChannel error:', e?.message || e);
+    }
   }
 
-  // ... rest unchanged ...
+  async stopMonitoringChannel(channelId) {
+    this.monitoredChannels.delete(channelId.toString());
+  }
+
+  extractChatIdFromUrl(url) {
+    if (!url) return '';
+    if (url.includes('t.me/+')) return url; // invite link
+    if (url.includes('t.me/')) return '@' + url.split('/').pop();
+    return url; // numeric id or @username
+  }
+
+  extractText(u) { return (u.text || u.caption || '').toString().trim(); }
+
+  // Handlers wired via processUpdate from webhook
+  async onMessage(msg) {
+    // discovery
+    await this.chatDiscovery.processUpdate(msg);
+
+    const info = this.monitoredChannels.get(msg.chat.id.toString());
+    if (!info) return; // not monitored
+    await this.processMessage(msg, info.userId, info.channelId, false);
+  }
+
+  async onChannelPost(post) {
+    await this.chatDiscovery.processUpdate(post);
+
+    const info = this.monitoredChannels.get(post.chat.id.toString());
+    if (!info) return;
+    await this.processMessage(post, info.userId, info.channelId, true);
+  }
+
+  async processMessage(msg, userId, channelId, isChannelPost = false) {
+    try {
+      if (!msg) return;
+      if (!msg.text && !msg.caption && !msg.photo && !msg.video && !msg.document && !msg.audio && !msg.voice) return;
+      const text = this.extractText(msg);
+
+      // Keywords
+      let keywords = [];
+      try {
+        keywords = await KeywordService.getKeywordsByChannelId(channelId);
+        if (keywords.length === 0) keywords = await KeywordService.getUserKeywords(userId, true);
+      } catch {}
+
+      let shouldForward = keywords.length === 0;
+      if (keywords.length > 0 && text) {
+        const t = text.normalize('NFC');
+        shouldForward = keywords.some(k => {
+          const kw = (k.keyword || '').toString(); if (!kw) return false;
+          if (k.match_mode === 'regex') { try { return new RegExp(kw, k.case_sensitive ? '' : 'i').test(t); } catch { return false; } }
+          const T = k.case_sensitive ? t : t.toLowerCase();
+          const K = k.case_sensitive ? kw : kw.toLowerCase();
+          return k.match_mode === 'exact' ? T === K : T.includes(K);
+        });
+      }
+      if (!shouldForward) return;
+
+      const isDup = await checkDuplicate(msg, channelId);
+      if (isDup) return;
+
+      const destinations = await DestinationService.getUserDestinations(userId, true);
+      for (const dest of destinations) {
+        try {
+          await this.bot.copyMessage(dest.chat_id || dest.platform_specific_id, msg.chat.id, msg.message_id);
+          await LoggingService.logForwarding({ user_id: userId, channel_id: channelId, destination_id: dest.id, original_message_text: text.slice(0,500), matched_text: text.slice(0,200), status: 'success' });
+        } catch (e) {
+          await LoggingService.logForwarding({ user_id: userId, channel_id: channelId, destination_id: dest.id, original_message_text: text.slice(0,500), matched_text: text.slice(0,200), status: 'error' });
+        }
+      }
+    } catch (e) {
+      console.error('processMessage error:', e?.message || e);
+    }
+  }
 }
 
 module.exports = TelegramMonitor;
