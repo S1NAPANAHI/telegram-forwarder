@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const AuthMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/auth');
 const LoggingService = require('../services/LoggingService');
 const ChannelService = require('../services/ChannelService');
 const DestinationService = require('../services/DestinationService');
@@ -8,7 +8,7 @@ const KeywordService = require('../services/KeywordService');
 const supabase = require('../database/supabase');
 
 // GET /api/analytics/stats - Get comprehensive analytics stats
-router.get('/stats', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/stats', auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -54,7 +54,7 @@ router.get('/stats', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // GET /api/analytics/activity - Get weekly activity data
-router.get('/activity', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/activity', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const activity = await LoggingService.getForwardingActivityLast7Days(userId);
@@ -76,7 +76,7 @@ router.get('/activity', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // GET /api/analytics/performance - Get detailed performance metrics
-router.get('/performance', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/performance', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -130,7 +130,7 @@ router.get('/performance', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // GET /api/analytics/channels - Get channel-wise analytics
-router.get('/channels', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/channels', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     

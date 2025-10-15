@@ -2,11 +2,11 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const AuthMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/auth');
 const UserService = require('../services/UserService');
 
 // GET /api/auth/me - validate JWT and return user profile
-router.get('/me', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/me', auth, async (req, res) => {
   try {
     const u = req.user;
     return res.json({

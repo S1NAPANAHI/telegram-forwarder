@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const AuthMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/auth');
 const DestinationService = require('../services/DestinationService');
 
 // @route   POST /api/destinations
 // @desc    Add a new destination
 // @access  Private
-router.post('/', AuthMiddleware.authenticate, async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const { name, chat_id, description, is_active = true, type = 'telegram', platform = 'telegram' } = req.body;
 
@@ -33,7 +33,7 @@ router.post('/', AuthMiddleware.authenticate, async (req, res) => {
 // @route   GET /api/destinations
 // @desc    Get all destinations for user
 // @access  Private
-router.get('/', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const { active_only } = req.query;
     const activeOnly = active_only === 'true';
@@ -49,7 +49,7 @@ router.get('/', AuthMiddleware.authenticate, async (req, res) => {
 // @route   PUT /api/destinations/:id
 // @desc    Update a destination
 // @access  Private
-router.put('/:id', AuthMiddleware.authenticate, async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, chat_id, description, is_active, type, platform } = req.body;
@@ -106,7 +106,7 @@ router.put('/:id', AuthMiddleware.authenticate, async (req, res) => {
 // @route   DELETE /api/destinations/:id
 // @desc    Delete a destination
 // @access  Private
-router.delete('/:id', AuthMiddleware.authenticate, async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const destination = await DestinationService.deleteDestination(req.user.id, req.params.id);
 

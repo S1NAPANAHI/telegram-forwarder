@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const AuthMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/auth');
 const supabase = require('../database/supabase');
 
 // Utility: sanitize partial update payload
@@ -17,7 +17,7 @@ function buildUpdate(body) {
 }
 
 // GET /api/keywords?active_only=true|false
-router.get('/', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const activeOnly = req.query.active_only === 'true';
     let query = supabase
@@ -40,7 +40,7 @@ router.get('/', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // POST /api/keywords
-router.post('/', AuthMiddleware.authenticate, async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const { keyword, description, match_mode = 'contains', case_sensitive = false, priority = 0, is_active = true } = req.body;
 
@@ -78,7 +78,7 @@ router.post('/', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // PUT /api/keywords/:id
-router.put('/:id', AuthMiddleware.authenticate, async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const update = buildUpdate(req.body);
@@ -102,7 +102,7 @@ router.put('/:id', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // DELETE /api/keywords/:id
-router.delete('/:id', AuthMiddleware.authenticate, async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
 

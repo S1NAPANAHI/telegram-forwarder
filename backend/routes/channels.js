@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const AuthMiddleware = require('../middleware/authMiddleware');
+const auth = require('../middleware/auth');
 const supabase = require('../database/supabase');
 
 function buildUpdate(body){
@@ -22,7 +22,7 @@ function buildUpdate(body){
 }
 
 // GET /api/channels?active_only=true|false
-router.get('/', AuthMiddleware.authenticate, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const activeOnly = req.query.active_only === 'true';
     let query = supabase
@@ -45,7 +45,7 @@ router.get('/', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // POST /api/channels
-router.post('/', AuthMiddleware.authenticate, async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const { platform = 'telegram', chat_type = 'channel', chat_id, channel_name, username, description, is_active = true, forward_enabled = true, allow_media = true, allow_links = true, priority = 0 } = req.body;
 
@@ -84,7 +84,7 @@ router.post('/', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // PUT /api/channels/:id
-router.put('/:id', AuthMiddleware.authenticate, async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const update = buildUpdate(req.body);
@@ -108,7 +108,7 @@ router.put('/:id', AuthMiddleware.authenticate, async (req, res) => {
 });
 
 // DELETE /api/channels/:id
-router.delete('/:id', AuthMiddleware.authenticate, async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
