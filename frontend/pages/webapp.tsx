@@ -1,69 +1,42 @@
-import { useEffect, useState } from 'react';
-import Head from 'next/head';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 
+// Telegram WebApp handshake page
 export default function WebApp() {
   const router = useRouter();
-  const { loginWithTelegram, isAuthenticated, loading } = useAuth();
-  const [mode, setMode] = useState<'telegram' | 'browser'>('browser');
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const boot = async () => {
+    const run = async () => {
       try {
-        // @ts-ignore
-        const tg = typeof window !== 'undefined' ? window?.Telegram?.WebApp : null;
-        if (!tg || !tg.initData) {
-          // Not inside Telegram – fallback: go to dashboard directly
-          setMode('browser');
-          router.replace('/dashboard');
+        // Read initData from Telegram WebApp if available
+        const w = window as any;
+        const initData: string | undefined = w?.Telegram?.WebApp?.initData;
+        const next = typeof router.query.next === 'string' ? router.query.next : '/dashboard';
+        
+        if (!initData) {
+          // Try header-based auth if Telegram injected header via proxy, otherwise fallback
+          router.replace('/login?next=' + encodeURIComponent(next));
           return;
         }
-
-        setMode('telegram');
-        tg.ready();
-        tg.expand();
-
-        const initData = tg.initData as string;
-        const ok = await loginWithTelegram(initData);
-        if (ok) {
-          router.replace('/dashboard');
-        } else {
-          setError('Authentication failed');
-          router.replace('/login');
+        
+        const res = await api.post('/api/auth/telegram-webapp', { initData });
+        if (res.data?.token) {
+          localStorage.setItem('token', res.data.token);
+          router.replace(next);
+          return;
         }
-      } catch (e: any) {
-        console.error('WebApp bootstrap failed', e);
-        setError(e?.message || 'Initialization error');
+        router.replace('/login?next=' + encodeURIComponent(next));
+      } catch (e) {
         router.replace('/login');
       }
     };
-
-    // If already authenticated, go to dashboard
-    if (isAuthenticated) {
-      router.replace('/dashboard');
-      return;
-    }
-
-    boot();
-  }, [router, isAuthenticated, loginWithTelegram]);
+    run();
+  }, [router]);
 
   return (
-    <>
-      <Head>
-        <script src="https://telegram.org/js/telegram-web-app.js" async></script>
-      </Head>
-      <div className="min-h-screen flex flex-col items-center justify-center text-gray-700 p-6">
-        <div className="card p-6 w-full max-w-md text-center">
-          <h1 className="text-xl font-semibold mb-2">Initializing WebApp…</h1>
-          <p className="text-sm text-gray-600 mb-4">
-            {mode === 'telegram' ? 'Connecting to Telegram…' : 'Opening dashboard…'}
-          </p>
-          {loading && <div className="text-sm">Please wait…</div>}
-          {error && <div className="text-sm text-red-600">{error}</div>}
-        </div>
-      </div>
-    </>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="spinner w-8 h-8" />
+    </div>
   );
 }
