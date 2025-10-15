@@ -19,7 +19,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useTranslation } from 'next-i18next';
 import Link from 'next/link';
-import { useAuth, useUserProfile } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { Menu, Transition } from '@headlessui/react';
 import LanguageSwitcher from './LanguageSwitcher';
 
@@ -29,8 +29,7 @@ interface MenuItem { name: string; href: string; icon: React.ComponentType<{ cla
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { t } = useTranslation('common');
   const router = useRouter();
-  const { logout } = useAuth();
-  const userProfile = useUserProfile();
+  const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -122,8 +121,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     {router.pathname !== '/dashboard' && (<>
                       <span className="text-sm text-gray-400">/</span>
                       <span className="text-sm text-gray-900 dark:text-white capitalize">{router.pathname.replace('/', '')}</span>
-                    </>
-                    )}
+                    </>)}
                   </nav>
                 </div>
               </div>
@@ -142,16 +140,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <LanguageSwitcher />
                   <Menu as="div" className="relative">
                     <Menu.Button className="flex items-center space-x-2 p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                      {userProfile?.avatar ? (
-                        <img src={userProfile.avatar} alt={userProfile.displayName} className="h-8 w-8 rounded-full" />
+                      {user?.avatar ? (
+                        <img src={user.avatar as any} alt={user.username || 'user'} className="h-8 w-8 rounded-full" />
                       ) : (
                         <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
                           <UserIcon className="h-5 w-5 text-white" />
                         </div>
                       )}
                       <div className="hidden md:block text-left">
-                        <p className="text-sm font-medium">{userProfile?.displayName || t('user')}</p>
-                        {userProfile?.isTelegramUser && (
+                        <p className="text-sm font-medium">{user?.username || t('user')}</p>
+                        {user?.telegramId && (
                           <p className="text-xs text-blue-600 dark:text-blue-400">{t('telegram')}</p>
                         )}
                       </div>
@@ -160,8 +158,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <Transition as={Fragment} enter="transition ease-out duration-100" enterFrom="transform opacity-0 scale-95" enterTo="transform opacity-100 scale-100" leave="transition ease-in duration-75" leaveFrom="transform opacity-100 scale-100" leaveTo="transform opacity-0 scale-95">
                       <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                         <div className="p-3 border-b dark:border-gray-700">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{userProfile?.displayName || t('user')}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{userProfile?.email}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.username || t('user')}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email || ''}</p>
                         </div>
                         <div className="py-1">
                           <Menu.Item>{({ active }) => (
