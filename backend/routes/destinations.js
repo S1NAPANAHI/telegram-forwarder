@@ -1,32 +1,81 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const DestinationService = require('../services/DestinationService');
+const supabase = require('../database/supabase');
 
 // @route   POST /api/destinations
-// @desc    Add a new destination
+// @desc    Add a new destination (description is optional and ignored if column doesn't exist)
 // @access  Private
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name, chat_id, description, is_active = true, type = 'telegram', platform = 'telegram' } = req.body;
+    const userId = req.user.id;
+    let { name, chat_id, description, is_active = true, type = 'telegram', platform = 'telegram' } = req.body || {};
 
-    if (!name || !chat_id) {
-      return res.status(400).json({ error: 'Name and chat_id are required' });
+    // Basic validation for required DB-backed fields
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    if (!chat_id || !String(chat_id).trim()) {
+      return res.status(400).json({ error: 'chat_id is required' });
     }
 
-    const newDestination = await DestinationService.addDestination(req.user.id, {
-      name: name.trim(),
-      chat_id: chat_id.trim(),
-      description: description?.trim() || null,
-      is_active: Boolean(is_active),
-      type,
-      platform
-    });
+    name = String(name).trim();
+    chat_id = String(chat_id).trim();
+    type = String(type || 'telegram');
+    platform = String(platform || 'telegram');
+    is_active = !!is_active;
 
-    res.status(201).json(newDestination);
-  } catch (error) {
-    console.error('Create destination error:', error);
-    res.status(500).json({ error: error.message });
+    // Prevent duplicates for the same user/platform/chat_id
+    const { data: existing, error: existingError } = await supabase
+      .from('destinations')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('platform', platform)
+      .eq('chat_id', chat_id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.warn('POST /destinations duplicate-check warning:', existingError.message);
+      // Continue; do not block creation due to read error
+    }
+
+    if (existing) {
+      return res.status(409).json({ error: 'Destination already exists for this platform and chat_id' });
+    }
+
+    // Build insert payload with only DB-supported columns per schema V1
+    const payload = {
+      user_id: userId,
+      type,
+      platform,
+      chat_id,
+      name,
+      is_active
+    };
+
+    const { data, error } = await supabase
+      .from('destinations')
+      .insert([payload])
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('POST /destinations DB error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'Destination already exists' });
+      }
+      return res.status(500).json({ error: 'Failed to create destination' });
+    }
+
+    return res.status(201).json(data);
+  } catch (err) {
+    console.error('Create destination error:', err.message);
+    return res.status(500).json({ error: 'Failed to create destination' });
   }
 });
 
@@ -35,14 +84,27 @@ router.post('/', authMiddleware, async (req, res) => {
 // @access  Private
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { active_only } = req.query;
-    const activeOnly = active_only === 'true';
-    
-    const destinations = await DestinationService.getUserDestinations(req.user.id, activeOnly);
-    res.json(destinations);
+    const userId = req.user.id;
+    const activeOnly = req.query.active_only === 'true';
+
+    let query = supabase
+      .from('destinations')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (activeOnly) query = query.eq('is_active', true);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('GET /destinations DB error:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch destinations' });
+    }
+
+    return res.json(data || []);
   } catch (error) {
-    console.error('Get destinations error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Get destinations error:', error.message);
+    return res.status(500).json({ error: 'Failed to fetch destinations' });
   }
 });
 
@@ -51,55 +113,39 @@ router.get('/', authMiddleware, async (req, res) => {
 // @access  Private
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
-    const { name, chat_id, description, is_active, type, platform } = req.body;
+    const { name, chat_id, is_active, type, platform } = req.body || {};
 
-    if (!id) {
-      return res.status(400).json({ error: 'Destination ID is required' });
-    }
-
-    // First check if the destination exists and belongs to the user
-    const existingDestinations = await DestinationService.getUserDestinations(req.user.id, false);
-    const existingDestination = existingDestinations.find(d => d.id === id);
-
-    if (!existingDestination) {
-      return res.status(404).json({ error: 'Destination not found or access denied' });
-    }
-
-    // Update the destination using Supabase directly since DestinationService doesn't have update method
-    const supabase = require('../database/supabase');
-    
     const updateData = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (chat_id !== undefined) updateData.chat_id = chat_id.trim();
-    if (description !== undefined) updateData.description = description?.trim() || null;
-    if (is_active !== undefined) updateData.is_active = Boolean(is_active);
-    if (type !== undefined) updateData.type = type;
-    if (platform !== undefined) updateData.platform = platform;
-    
-    // Add updated timestamp
+    if (name !== undefined) updateData.name = String(name).trim();
+    if (chat_id !== undefined) updateData.chat_id = String(chat_id).trim();
+    if (is_active !== undefined) updateData.is_active = !!is_active;
+    if (type !== undefined) updateData.type = String(type);
+    if (platform !== undefined) updateData.platform = String(platform);
     updateData.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('destinations')
       .update(updateData)
       .eq('id', id)
-      .eq('user_id', req.user.id)
-      .select()
+      .eq('user_id', userId)
+      .select('*')
       .single();
 
     if (error) {
-      throw new Error(error.message);
+      console.error('PUT /destinations DB error:', error.message);
+      return res.status(500).json({ error: 'Failed to update destination' });
     }
 
     if (!data) {
       return res.status(404).json({ error: 'Destination not found or access denied' });
     }
 
-    res.json(data);
+    return res.json(data);
   } catch (error) {
-    console.error('Update destination error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Update destination error:', error.message);
+    return res.status(500).json({ error: 'Failed to update destination' });
   }
 });
 
@@ -108,16 +154,30 @@ router.put('/:id', authMiddleware, async (req, res) => {
 // @access  Private
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    const destination = await DestinationService.deleteDestination(req.user.id, req.params.id);
+    const userId = req.user.id;
+    const { id } = req.params;
 
-    if (!destination) {
+    const { data, error } = await supabase
+      .from('destinations')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('DELETE /destinations DB error:', error.message);
+      return res.status(500).json({ error: 'Failed to delete destination' });
+    }
+
+    if (!data) {
       return res.status(404).json({ error: 'Destination not found' });
     }
 
-    res.json({ message: 'Destination deleted successfully' });
+    return res.json({ ok: true });
   } catch (error) {
-    console.error('Delete destination error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Delete destination error:', error.message);
+    return res.status(500).json({ error: 'Failed to delete destination' });
   }
 });
 
