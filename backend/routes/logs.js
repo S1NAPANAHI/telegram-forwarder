@@ -1,30 +1,37 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
-const LoggingService = require('../services/LoggingService');
+const authMiddleware = require('../middleware/authMiddleware');
+const supabase = require('../database/supabase');
 
 // GET /api/logs - Get all logs for the authenticated user
-router.get('/', auth, async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const logs = await LoggingService.getLogsForUser(req.user.id);
-    res.json(logs || []);
-  } catch (error) {
-    console.error('Get logs error:', error);
-    res.status(500).json({ error: 'Failed to fetch logs' });
+    const { limit = 100, offset = 0, level } = req.query;
+    
+    let query = supabase
+      .from('logs')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    // Filter by log level if specified
+    if (level && ['info', 'warning', 'error', 'debug'].includes(level)) {
+      query = query.eq('level', level);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+
+    res.json(data || []);
+  } catch (err) {
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// GET /api/logs/:id - Get a single log entry by ID
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const log = await LoggingService.getLogsForUser(req.user.id, req.params.id);
-    if (!log || log.length === 0) {
-      return res.status(404).json({ error: 'Log entry not found' });
-    }
-    res.json(log[0]);
-  } catch (error) {
-    console.error('Get log by id error:', error);
-    res.status(500).json({ error: 'Failed to fetch log entry' });
-  }n});
 
 module.exports = router;
