@@ -5,7 +5,8 @@ const supabase = require('../database/supabase');
 // Fallback in-memory store (for development or if DB fails)
 const refreshStore = new Map();
 
-const ACCESS_EXPIRES_IN = process.env.ACCESS_EXPIRES_IN || '30m';
+// Increased access token lifetime to reduce frequent refreshes
+const ACCESS_EXPIRES_IN = process.env.ACCESS_EXPIRES_IN || '1h'; // Changed from 30m to 1h
 const REFRESH_EXPIRES_DAYS = parseInt(process.env.REFRESH_EXPIRES_DAYS || '7', 10);
 
 const ACCESS_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -151,9 +152,7 @@ setInterval(async () => {
       .delete()
       .lt('expires_at', new Date().toISOString());
 
-    if (error) {
-      console.warn('Failed to cleanup expired refresh tokens:', error.message);
-    } else {
+    if (!error) {
       console.log('Cleaned up expired refresh tokens');
     }
   } catch (cleanupError) {
