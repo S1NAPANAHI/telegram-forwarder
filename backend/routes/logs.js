@@ -3,34 +3,40 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const supabase = require('../database/supabase');
 
-// GET /api/logs - Get all logs for the authenticated user
+// GET /api/logs?limit=&offset=&level=
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { limit = 100, offset = 0, level } = req.query;
-    
-    let query = supabase
-      .from('logs')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false })
-      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+    const userId = req.user.id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '50', 10), 1), 200);
+    const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+    const level = req.query.level; // info|warning|error|debug (if you store one)
 
-    // Filter by log level if specified
+    console.log('GET /logs - user:', userId, 'limit:', limit, 'offset:', offset, 'level:', level);
+
+    let query = supabase
+      .from('message_logs')
+      .select('id, user_id, keyword_id, channel_id, original_message_id, original_message_text, matched_text, status, processing_time_ms, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    // If you keep a "level" field, add this mapping as needed.
     if (level && ['info', 'warning', 'error', 'debug'].includes(level)) {
-      query = query.eq('level', level);
+      // If you use a separate level column, change this to .eq('level', level)
+      query = query.eq('status', level);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      console.error('Database error:', error);
+      console.error('GET /logs DB error:', { message: error.message, code: error.code, details: error.details });
       return res.status(500).json({ error: 'Failed to fetch logs' });
     }
 
-    res.json(data || []);
+    return res.json(data || []);
   } catch (err) {
-    console.error('Server error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('GET /logs error:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });
 
