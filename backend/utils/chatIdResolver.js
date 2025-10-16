@@ -47,7 +47,8 @@ class ChatIdResolver {
     // Check cache first
     if (this.cache.has(chatId)) {
       const cached = this.cache.get(chatId);
-      logger.debug(`Using cached ID for ${chatId}: ${cached}`);\n      return cached;
+      logger.debug(`Using cached ID for ${chatId}: ${cached}`);
+      return cached;
     }
 
     if (!this.bot) {
