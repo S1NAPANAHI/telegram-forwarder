@@ -119,7 +119,7 @@ class TelegramMonitor {
     this.chatDiscovery = null;
     this.telegramDiscoveryService = null;
     this.defaultUserId = null;
-    this.forwardingEnhancer = null; // NEW: Enhanced forwarding pipeline
+    this.forwardingEnhancer = null;
     TelegramMonitor.instance = this;
   }
 
@@ -139,8 +139,8 @@ class TelegramMonitor {
       this.chatDiscovery = new ChatDiscoveryService(this.bot);
       this.telegramDiscoveryService = new TelegramDiscoveryService();
       
-      // NEW: Initialize enhanced forwarding pipeline
-      this.forwardingEnhancer = ForwardingEnhancer(this.bot);
+      // Initialize enhanced forwarding pipeline
+      this.forwardingEnhancer = new ForwardingEnhancer(require('../database/supabase'), this.bot);
 
       // Set bot instance for chat ID resolver
       chatIdResolver.setBotInstance(this.bot);
@@ -243,7 +243,7 @@ class TelegramMonitor {
           }
         }
         
-        // FIXED: Use consistent column names (is_admin, is_member)
+        // Use consistent column names (is_admin, is_member)
         await supabase.from('discovered_chats').upsert({ 
           user_id: targetUserId, 
           chat_id: data.chat_id, 
@@ -256,7 +256,7 @@ class TelegramMonitor {
           last_discovered: new Date().toISOString() 
         }, { onConflict: 'user_id,chat_id' });
         
-        console.log(`Discovered chat saved: ${data.title} (${data.chat_type})`);
+        console.log(`✅ Discovered chat saved: ${data.title} (${data.chat_type})`);
         
       } catch (e) { 
         console.error('Error saving discovered chat (guarded):', e.message); 
@@ -290,7 +290,7 @@ class TelegramMonitor {
         const userName = msg.from?.first_name || 'User';
         const isPrivateChat = msg.chat.type === 'private';
         
-        // ENHANCED: Store user's telegram_id for DM notifications
+        // Store user's telegram_id for DM notifications
         if (msg.from?.id) {
           try {
             await UserService.createOrUpdateUser({
@@ -445,7 +445,6 @@ class TelegramMonitor {
             const isAdmin = ['administrator','creator'].includes(member.status); 
             const supabase = require('../database/supabase'); 
             
-            // FIXED: Use consistent column names
             await supabase.from('discovered_chats').upsert({ 
               user_id: user.id, 
               chat_id: chatId.toString(), 
@@ -556,7 +555,7 @@ class TelegramMonitor {
         channelId: channel.id, 
         userId: channel.user_id, 
         name: channel.name || channel.channel_name,
-        channel: channel // Store full channel object for pipeline
+        channel: channel
       }); 
       
       console.log(`Monitoring: ${channel.channel_name} (${chatId})`); 
@@ -580,7 +579,7 @@ class TelegramMonitor {
     return (u.text || u.caption || '').toString().trim(); 
   }
 
-  // ENHANCED: Use ForwardingEnhancer pipeline instead of direct forwarding
+  // Use ForwardingEnhancer pipeline instead of direct forwarding
   async onMessage(msg) { 
     try { 
       if (this.chatDiscovery) await this.chatDiscovery.processUpdate(msg); 
@@ -588,7 +587,9 @@ class TelegramMonitor {
       const info = this.monitoredChannels.get(msg.chat.id.toString()); 
       if (!info) return; 
       
-      // NEW: Use enhanced pipeline instead of processMessage
+      console.log(`📨 Processing message from monitored channel: ${info.name}`);
+      
+      // Use enhanced pipeline for multi-channel forwarding
       if (this.forwardingEnhancer) {
         await this.forwardingEnhancer.handleIncomingMessage(msg, info.userId, info.channel);
       }
@@ -604,7 +605,9 @@ class TelegramMonitor {
       const info = this.monitoredChannels.get(post.chat.id.toString()); 
       if (!info) return; 
       
-      // NEW: Use enhanced pipeline instead of processMessage
+      console.log(`📢 Processing channel post from: ${info.name}`);
+      
+      // Use enhanced pipeline for multi-channel forwarding
       if (this.forwardingEnhancer) {
         await this.forwardingEnhancer.handleIncomingMessage(post, info.userId, info.channel);
       }
