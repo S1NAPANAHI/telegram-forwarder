@@ -6,6 +6,7 @@ const DestinationService = require('../services/DestinationService');
 const LoggingService = require('../services/LoggingService');
 const ChatDiscoveryService = require('../services/ChatDiscoveryService');
 const TelegramDiscoveryService = require('../services/TelegramDiscoveryService');
+const ForwardingEnhancer = require('../services/ForwardingEnhancer');
 const attachPassiveAutoPromote = require('./passiveAutoPromote');
 const { forwardMessage, checkDuplicate } = require('../services/forwardingService');
 const chatIdResolver = require('../utils/chatIdResolver');
@@ -118,6 +119,7 @@ class TelegramMonitor {
     this.chatDiscovery = null;
     this.telegramDiscoveryService = null;
     this.defaultUserId = null;
+    this.forwardingEnhancer = null; // NEW: Enhanced forwarding pipeline
     TelegramMonitor.instance = this;
   }
 
@@ -136,6 +138,9 @@ class TelegramMonitor {
       this.bot = new TelegramBot(token, { polling: false });
       this.chatDiscovery = new ChatDiscoveryService(this.bot);
       this.telegramDiscoveryService = new TelegramDiscoveryService();
+      
+      // NEW: Initialize enhanced forwarding pipeline
+      this.forwardingEnhancer = ForwardingEnhancer(this.bot);
 
       // Set bot instance for chat ID resolver
       chatIdResolver.setBotInstance(this.bot);
@@ -232,6 +237,7 @@ class TelegramMonitor {
           try { 
             const member = await this.bot.getChatMember(chat.id, me.id); 
             isAdmin = ['administrator','creator'].includes(member.status); 
+            console.log(`Admin check for ${chat.id}: ${member.status} (admin: ${isAdmin})`);
           } catch (e) {
             console.warn('Error checking admin status:', e.message);
           }
@@ -250,15 +256,8 @@ class TelegramMonitor {
           last_discovered: new Date().toISOString() 
         }, { onConflict: 'user_id,chat_id' });
         
-        // FIXED: Pass consistent parameters to ChatDiscoveryService
-        await this.chatDiscovery.saveDiscoveredChat({ 
-          chat_id: data.chat_id, 
-          chat_type: data.chat_type, 
-          title: data.title, 
-          username: data.username, 
-          is_bot_admin: isAdmin, 
-          is_bot_member: true 
-        }, targetUserId);
+        console.log(`Discovered chat saved: ${data.title} (${data.chat_type})`);
+        
       } catch (e) { 
         console.error('Error saving discovered chat (guarded):', e.message); 
       }
@@ -272,7 +271,7 @@ class TelegramMonitor {
           userId = user?.id; 
         } 
       } catch (e) {
-        console.error('Error getting user from message:', e.message);
+        console.error('Error finding channel owner:', e.message);
       } 
       await upsertDiscovered(msg.chat, userId); 
     });
@@ -283,20 +282,29 @@ class TelegramMonitor {
   }
 
   setupCommandHandlers() {
-    this.bot.onText(/^\/ping\b/i, async (msg) => { 
-      try { 
-        await this.bot.sendMessage(msg.chat.id, '🏓 pong'); 
-      } catch (e) { 
-        console.error('/ping error:', e?.message || e); 
-      } 
-    });
-    
+    // Store user's telegram_id on /start for DM notifications  
     this.bot.onText(/^\/start\b/i, async (msg) => { 
-      try { 
+      try {
         const lang = await getUserLang(msg.from?.id); 
         const t = i18n[lang]; 
         const userName = msg.from?.first_name || 'User';
         const isPrivateChat = msg.chat.type === 'private';
+        
+        // ENHANCED: Store user's telegram_id for DM notifications
+        if (msg.from?.id) {
+          try {
+            await UserService.createOrUpdateUser({
+              telegram_id: msg.from.id,
+              username: msg.from.username,
+              first_name: msg.from.first_name,
+              last_name: msg.from.last_name,
+              language: lang
+            });
+            console.log(`✅ Stored user telegram_id ${msg.from.id} for DM notifications`);
+          } catch (e) {
+            console.error('Error storing user telegram_id:', e.message);
+          }
+        }
         
         if (isPrivateChat) {
           // Private chat: Use web_app button
@@ -325,6 +333,14 @@ class TelegramMonitor {
         try { 
           await this.bot.sendMessage(msg.chat.id, '👋 Bot is online and ready!'); 
         } catch {} 
+      } 
+    });
+    
+    this.bot.onText(/^\/ping\b/i, async (msg) => { 
+      try { 
+        await this.bot.sendMessage(msg.chat.id, '🏓 pong'); 
+      } catch (e) { 
+        console.error('/ping error:', e?.message || e); 
       } 
     });
     
@@ -533,13 +549,14 @@ class TelegramMonitor {
 
   async startMonitoringChannel(channel) { 
     try { 
-      const chatId = channel.platform_specific_id || this.extractChatIdFromUrl(channel.channel_url); 
+      const chatId = channel.platform_specific_id || channel.chat_id || this.extractChatIdFromUrl(channel.channel_url); 
       if (!chatId) return; 
       
       this.monitoredChannels.set(chatId.toString(), { 
         channelId: channel.id, 
         userId: channel.user_id, 
-        name: channel.name || channel.channel_name 
+        name: channel.name || channel.channel_name,
+        channel: channel // Store full channel object for pipeline
       }); 
       
       console.log(`Monitoring: ${channel.channel_name} (${chatId})`); 
@@ -563,6 +580,7 @@ class TelegramMonitor {
     return (u.text || u.caption || '').toString().trim(); 
   }
 
+  // ENHANCED: Use ForwardingEnhancer pipeline instead of direct forwarding
   async onMessage(msg) { 
     try { 
       if (this.chatDiscovery) await this.chatDiscovery.processUpdate(msg); 
@@ -570,7 +588,10 @@ class TelegramMonitor {
       const info = this.monitoredChannels.get(msg.chat.id.toString()); 
       if (!info) return; 
       
-      await this.processMessage(msg, info.userId, info.channelId, false); 
+      // NEW: Use enhanced pipeline instead of processMessage
+      if (this.forwardingEnhancer) {
+        await this.forwardingEnhancer.handleIncomingMessage(msg, info.userId, info.channel);
+      }
     } catch (e) { 
       console.error('onMessage error:', e?.message || e); 
     } 
@@ -583,120 +604,12 @@ class TelegramMonitor {
       const info = this.monitoredChannels.get(post.chat.id.toString()); 
       if (!info) return; 
       
-      await this.processMessage(post, info.userId, info.channelId, true); 
+      // NEW: Use enhanced pipeline instead of processMessage
+      if (this.forwardingEnhancer) {
+        await this.forwardingEnhancer.handleIncomingMessage(post, info.userId, info.channel);
+      }
     } catch (e) { 
       console.error('onChannelPost error:', e?.message || e); 
-    } 
-  }
-
-  /**
-   * ENHANCED: Process message with chat ID resolution and better error handling
-   */
-  async processMessage(msg, userId, channelId, isChannelPost = false) { 
-    try { 
-      if (!msg) return; 
-      
-      // Check if message has content to process
-      if (!msg.text && !msg.caption && !msg.photo && !msg.video && !msg.document && !msg.audio && !msg.voice) {
-        return;
-      }
-      
-      const text = this.extractText(msg); 
-      let keywords = []; 
-      
-      try { 
-        keywords = await KeywordService.getKeywordsByChannelId(channelId); 
-        if (keywords.length === 0) {
-          keywords = await KeywordService.getUserKeywords(userId, true); 
-        }
-      } catch (e) {
-        console.error('Error fetching keywords:', e.message);
-      }
-    
-      // If no keywords, forward all messages (default behavior)
-      let shouldForward = keywords.length === 0; 
-      
-      if (keywords.length > 0 && text) { 
-        const t = text.normalize('NFC'); 
-        shouldForward = keywords.some(k => { 
-          const kw = (k.keyword || '').toString(); 
-          if (!kw) return false; 
-          
-          if (k.match_mode === 'regex') { 
-            try { 
-              return new RegExp(kw, k.case_sensitive ? '' : 'i').test(t); 
-            } catch { 
-              return false; 
-            } 
-          } 
-          
-          const T = k.case_sensitive ? t : t.toLowerCase(); 
-          const K = k.case_sensitive ? kw : kw.toLowerCase(); 
-          return k.match_mode === 'exact' ? T === K : T.includes(K); 
-        }); 
-      }
-    
-      if (!shouldForward) return; 
-      
-      const isDup = await checkDuplicate(msg, channelId); 
-      if (isDup) return; 
-      
-      const destinations = await DestinationService.getUserDestinations(userId, true); 
-      
-      if (destinations.length === 0) {
-        console.log(`No destinations found for user ${userId} - cannot forward message`);
-        return;
-      }
-      
-      for (const dest of destinations) { 
-        try { 
-          // ENHANCED: Auto-resolve @username to numeric ID before forwarding
-          let targetChatId = dest.chat_id || dest.platform_specific_id;
-          
-          if (chatIdResolver.needsResolution(targetChatId)) {
-            console.log(`Resolving destination: ${targetChatId}`);
-            targetChatId = await chatIdResolver.resolveAndUpdateDestination(dest.id, targetChatId);
-          }
-          
-          // Forward the message
-          await this.bot.copyMessage(
-            targetChatId,
-            msg.chat.id, 
-            msg.message_id
-          ); 
-          
-          console.log(`✅ Forwarded message from ${msg.chat.id} to ${targetChatId}`);
-          
-          // FIXED: Ensure all parameters are proper UUIDs/strings
-          await LoggingService.logForwarding({ 
-            user_id: userId, 
-            channel_id: channelId, 
-            destination_id: dest.id, // Already a UUID
-            original_message_text: text.slice(0,500), 
-            matched_text: text.slice(0,200), 
-            status: 'success' 
-          }); 
-        } catch (e) { 
-          console.error(`Error forwarding to ${dest.chat_id || dest.platform_specific_id}:`, {
-            error: e.message,
-            code: e.code,
-            description: e.description
-          });
-          
-          // FIXED: Ensure all parameters are proper UUIDs/strings
-          await LoggingService.logForwarding({ 
-            user_id: userId, 
-            channel_id: channelId, 
-            destination_id: dest.id, // Already a UUID
-            original_message_text: text.slice(0,500), 
-            matched_text: text.slice(0,200), 
-            status: 'error',
-            error_message: e.message 
-          }); 
-        } 
-      } 
-    } catch (e) { 
-      console.error('processMessage error:', e?.message || e); 
     } 
   }
 
