@@ -8,72 +8,60 @@ async function shouldAutoPromote(userId) {
 }
 
 async function ensureChannelForUser(userId, chat, isAdmin) {
-  const chatId = chat?.id?.toString(); if (!chatId) return null;
+  const chatId = chat?.id?.toString(); if (!chatId || !userId) return null;
   const name = chat.title || chat.first_name || 'Chat';
   const { data: existing } = await supabase.from('channels').select('id').eq('user_id', userId).eq('channel_url', chatId).maybeSingle();
-  if (existing) return existing.id;
+  if (existing?.id) return existing.id;
   const { data: newCh, error } = await supabase.from('channels').insert({ user_id: userId, platform: 'telegram', channel_url: chatId, channel_name: name, monitoring_method: isAdmin ? 'bot_api' : 'client_api', admin_status: !!isAdmin, discovery_source: 'auto_discovered', is_active: true }).select('id').single();
   if (error) { console.warn('ensureChannelForUser insert failed:', error.message); return null; }
   return newCh?.id || null;
 }
 
-// Resolve a user context to attach discovered/promoted data
 async function resolveUserIdFromUpdate(bot, msg) {
-  // 1) Prefer sender's telegram_id mapping
-  if (msg?.from?.id) {
-    const u = await UserService.getByTelegramId(msg.from.id).catch(() => null);
-    if (u?.id) return u.id;
-  }
-  // 2) Fallback: see if this chat already tied to a channel -> user_id
+  // 1) sender telegram id
+  try { if (msg && msg.from && msg.from.id) { const u = await UserService.getByTelegramId(msg.from.id); if (u?.id) return u.id; } } catch {}
   const chatId = msg?.chat?.id?.toString();
+  // 2) channel ownership
   if (chatId) {
-    const { data: ch } = await supabase.from('channels').select('user_id').eq('channel_url', chatId).maybeSingle();
-    if (ch?.user_id) return ch.user_id;
+    try { const { data: ch } = await supabase.from('channels').select('user_id').eq('channel_url', chatId).maybeSingle(); if (ch?.user_id) return ch.user_id; } catch {}
   }
-  // 3) Fallback: discovered_chats row with any user_id
+  // 3) discovered ownership
   if (chatId) {
-    const { data: dc } = await supabase.from('discovered_chats').select('user_id').eq('chat_id', chatId).order('last_discovered', { ascending: false }).maybeSingle();
-    if (dc?.user_id) return dc.user_id;
+    try { const { data: dc } = await supabase.from('discovered_chats').select('user_id').eq('chat_id', chatId).order('last_discovered', { ascending: false }).maybeSingle(); if (dc?.user_id) return dc.user_id; } catch {}
   }
+  // 4) single-user instance fallback (safe default for one-user setups)
+  try {
+    const { data: users } = await supabase.from('users').select('id').limit(2);
+    if (Array.isArray(users) && users.length === 1) return users[0].id;
+  } catch {}
   return null;
 }
 
 module.exports = function attachPassiveAutoPromote(bot, monitoredChannels) {
   const cd = new ChatDiscoveryService(bot);
 
-  async function upsertAndPromote(msg) {
+  async function upsertAndPromote(raw) {
     try {
-      const chat = msg?.chat; if (!chat) return;
-      if (!['group','supergroup','channel'].includes(chat.type)) return;
+      // raw can be message or channel_post
+      const msg = raw || {};
+      const chat = msg.chat || {};
+      if (!chat.id || !['group','supergroup','channel'].includes(chat.type)) return;
 
-      // Resolve user_id robustly
       const userId = await resolveUserIdFromUpdate(bot, msg);
-      
-      // Save discovered row (with or without user_id)
-      try {
-        const me = await bot.getMe();
-        let isAdmin = false;
-        try { const member = await bot.getChatMember(chat.id, me.id); isAdmin = ['administrator','creator'].includes(member.status); } catch {}
-        if (userId) {
+
+      // Check admin
+      let isAdmin = false;
+      try { const me = await bot.getMe(); const member = await bot.getChatMember(chat.id, me.id); isAdmin = ['administrator','creator'].includes(member.status); } catch {}
+
+      // Save discovered only when userId is known
+      if (userId) {
+        try {
           await supabase.from('discovered_chats').upsert({ user_id: userId, chat_id: chat.id.toString(), chat_type: chat.type, chat_title: chat.title || chat.first_name || 'Chat', chat_username: chat.username || null, is_admin: isAdmin, discovery_method: 'bot_api', last_discovered: new Date().toISOString() }, { onConflict: 'user_id,chat_id' });
-        } else {
-          // store without user_id is not allowed due to NOT NULL; skip DB write, but still proceed to try linking via channel
-        }
-      } catch (e) {
-        console.warn('Error saving discovered chat:', e?.message || e);
+        } catch (e) { console.warn('Error saving discovered chat (guarded):', e?.message || e); }
       }
 
-      if (!userId) return; // cannot promote without a user context
-
-      // Auto-promote if enabled
-      const auto = await shouldAutoPromote(userId);
-      if (!auto) return;
-
-      const me = await bot.getMe();
-      let isAdmin = false;
-      try { const member = await bot.getChatMember(chat.id, me.id); isAdmin = ['administrator','creator'].includes(member.status); } catch {}
-      if (!isAdmin) return;
-
+      // Auto-promote only when we have userId and admin
+      if (!userId || !isAdmin) return;
       const channelId = await ensureChannelForUser(userId, chat, isAdmin);
       if (channelId) {
         monitoredChannels.set(chat.id.toString(), { channelId, userId, name: chat.title || 'Chat' });
