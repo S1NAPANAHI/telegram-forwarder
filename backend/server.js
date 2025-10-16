@@ -29,12 +29,36 @@ const logger = winston.createLogger({
   ]
 });
 
+// CORS Configuration - Allow multiple origins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001', 
+  'https://frontend-service-51uy.onrender.com',
+  process.env.FRONTEND_URL
+].filter(Boolean); // Remove any undefined/null values
+
+logger.info(`🌐 CORS allowed origins: ${allowedOrigins.join(', ')}`);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    logger.warn(`❌ CORS blocked origin: ${origin}`);
+    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    return callback(new Error(msg), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
+
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -53,13 +77,18 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    service: 'telegram-forwarder-backend'
+    service: 'telegram-forwarder-backend',
+    cors_origins: allowedOrigins
   });
 });
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ message: 'Telegram Forwarder Backend API' });
+  res.json({ 
+    message: 'Telegram Forwarder Backend API',
+    cors_origins: allowedOrigins,
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Routes with error handling
