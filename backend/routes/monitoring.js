@@ -61,4 +61,70 @@ router.get('/status', authMiddleware, async (req, res) => {
   }
 });
 
+// @route   POST /api/monitoring/refresh
+// @desc    Refresh monitoring for all channels (reload from database)
+// @access  Private
+router.post('/refresh', authMiddleware, async (req, res) => {
+  try {
+    console.log('Refreshing monitoring manager...');
+    
+    // Stop and restart monitoring for all active channels
+    const activeMonitors = Array.from(monitoringManager.activeMonitors.keys());
+    for (const channelId of activeMonitors) {
+      try {
+        await monitoringManager.stopMonitoring(channelId);
+      } catch (e) {
+        console.warn(`Error stopping channel ${channelId}:`, e.message);
+      }
+    }
+    
+    // Reload and restart with fresh data
+    await monitoringManager.loadAndStartActiveChannels();
+    
+    const status = monitoringManager.getMonitoringStatus(req.user.id);
+    console.log('Monitoring refresh completed');
+    
+    res.json({ 
+      success: true, 
+      message: 'Monitoring refreshed successfully',
+      status 
+    });
+  } catch (error) {
+    console.error('Error refreshing monitoring:', error.message);
+    res.status(500).json({ error: 'Failed to refresh monitoring' });
+  }
+});
+
+// @route   POST /api/monitoring/restart
+// @desc    Restart entire monitoring manager
+// @access  Private
+router.post('/restart', authMiddleware, async (req, res) => {
+  try {
+    console.log('Restarting monitoring manager...');
+    
+    // Stop all current monitoring
+    const activeMonitors = Array.from(monitoringManager.activeMonitors.keys());
+    for (const channelId of activeMonitors) {
+      try {
+        await monitoringManager.stopMonitoring(channelId);
+      } catch (e) {
+        console.warn(`Error stopping channel ${channelId}:`, e.message);
+      }
+    }
+    
+    // Reload and restart
+    await monitoringManager.loadAndStartActiveChannels();
+    
+    const status = monitoringManager.getMonitoringStatus();
+    res.json({ 
+      success: true, 
+      message: 'Monitoring manager restarted successfully',
+      status 
+    });
+  } catch (error) {
+    console.error('Error restarting monitoring manager:', error.message);
+    res.status(500).json({ error: 'Failed to restart monitoring manager' });
+  }
+});
+
 module.exports = router;
