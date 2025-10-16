@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "npm install",
+    "build": "npm install && npm audit fix",
     "test": "echo \"Error: no test specified\" && exit 1",
     "audit-fix": "npm audit fix --force"
   },
@@ -15,7 +15,8 @@
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x",
+    "npm": ">=10.0.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0",
@@ -24,7 +25,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^5.1.0",
+    "express": "^4.19.2",
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
