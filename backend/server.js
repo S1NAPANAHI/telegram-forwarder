@@ -120,9 +120,12 @@ loadRoute('/api/destinations', './routes/destinations');
 loadRoute('/api/logs', './routes/logs');
 loadRoute('/api/analytics', './routes/analytics');
 
+// Bot and automation routes
+loadRoute('/api/bot', './routes/bot');
+loadRoute('/api/auto-promote', './routes/autoPromote');
+
 // Optional routes
 console.log('Loading optional routes...');
-loadRoute('/api/bot', './routes/bot');
 loadRoute('/api/client-auth', './routes/clientAuth');
 loadRoute('/api/discovery', './routes/discovery');
 loadRoute('/api/monitoring', './routes/monitoring');
