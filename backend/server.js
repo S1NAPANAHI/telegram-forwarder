@@ -78,7 +78,9 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     service: 'telegram-forwarder-backend',
-    cors_origins: allowedOrigins
+    cors_origins: allowedOrigins,
+    node_version: process.version,
+    uptime: process.uptime()
   });
 });
 
@@ -87,7 +89,9 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Telegram Forwarder Backend API',
     cors_origins: allowedOrigins,
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0',
+    status: 'running'
   });
 });
 
@@ -117,26 +121,34 @@ routes.forEach(route => {
     app.use(route.path, (req, res) => {
       res.status(503).json({ 
         error: 'Service temporarily unavailable',
-        route: route.path 
+        route: route.path,
+        message: `Route ${route.path} failed to load: ${error.message}`
       });
     });
   }
 });
 
-// 404 handler - fixed for Express 5 compatibility
-app.use((req, res) => {
+// 404 handler - Express v4 compatible
+app.use((req, res, next) => {
   res.status(404).json({ 
     error: 'Route not found',
-    path: req.originalUrl
+    path: req.originalUrl,
+    method: req.method
   });
 });
 
-// Error handler
+// Error handler - Express v4 compatible
 app.use((error, req, res, next) => {
-  logger.error('Unhandled error:', error);
+  logger.error('Unhandled error:', {
+    message: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method
+  });
   res.status(500).json({ 
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -145,13 +157,29 @@ async function initializeServices() {
   try {
     logger.info('🔄 Initializing services...');
     
+    // Check if monitoring manager exists
+    const fs = require('fs');
+    const monitoringPath = path.join(__dirname, 'services', 'monitoringManager.js');
+    
+    if (!fs.existsSync(monitoringPath)) {
+      logger.warn('⚠️ Monitoring manager not found, creating placeholder...');
+      return;
+    }
+    
     // Initialize monitoring manager (this starts the Telegram bot)
     const monitoringManager = require('./services/monitoringManager');
-    await monitoringManager.initialize();
+    if (monitoringManager && typeof monitoringManager.initialize === 'function') {
+      await monitoringManager.initialize();
+      logger.info('✅ All services initialized successfully');
+    } else {
+      logger.warn('⚠️ Monitoring manager initialize method not available');
+    }
     
-    logger.info('✅ All services initialized successfully');
   } catch (error) {
-    logger.error('❌ Failed to initialize services:', error?.message || error);
+    logger.error('❌ Failed to initialize services:', {
+      message: error?.message || error,
+      stack: error?.stack
+    });
     // Don't exit - let the API server continue running even if bot fails
   }
 }
@@ -161,54 +189,59 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   logger.info(`🚀 Server is running on port ${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+  logger.info(`📦 Node.js version: ${process.version}`);
   
   // Initialize services after server is running
   await initializeServices();
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully');
+// Graceful shutdown handlers
+const gracefulShutdown = async (signal) => {
+  logger.info(`${signal} received, shutting down gracefully`);
   
   try {
-    // Shutdown monitoring manager
+    // Try to shutdown monitoring manager if available
     const monitoringManager = require('./services/monitoringManager');
-    await monitoringManager.shutdown();
+    if (monitoringManager && typeof monitoringManager.shutdown === 'function') {
+      await monitoringManager.shutdown();
+    }
   } catch (error) {
     logger.warn('Error during monitoring manager shutdown:', error?.message || error);
   }
   
-  server.close(() => {
-    logger.info('Process terminated');
+  server.close((err) => {
+    if (err) {
+      logger.error('Error during server shutdown:', err);
+      process.exit(1);
+    }
+    logger.info('Process terminated gracefully');
     process.exit(0);
   });
-});
+  
+  // Force exit after 10 seconds
+  setTimeout(() => {
+    logger.warn('Force exiting after 10 seconds');
+    process.exit(1);
+  }, 10000);
+};
 
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  
-  try {
-    // Shutdown monitoring manager
-    const monitoringManager = require('./services/monitoringManager');
-    await monitoringManager.shutdown();
-  } catch (error) {
-    logger.warn('Error during monitoring manager shutdown:', error?.message || error);
-  }
-  
-  server.close(() => {
-    logger.info('Process terminated');
-    process.exit(0);
-  });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
+  logger.error('Uncaught Exception:', {
+    message: error.message,
+    stack: error.stack
+  });
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection:', {
+    reason: reason,
+    promise: promise
+  });
   process.exit(1);
 });
 
