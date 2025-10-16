@@ -141,7 +141,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (chat_id !== undefined) {
       chat_id = String(chat_id).trim();
       
-      if (platform === 'telegram' && chatIdResolver.needsResolution(chat_id)) {
+      if ((platform || 'telegram') === 'telegram' && chatIdResolver.needsResolution(chat_id)) {
         try {
           const resolvedId = await chatIdResolver.resolveChatId(chat_id);
           console.log(`✅ Resolved destination ${chat_id} → ${resolvedId}`);
@@ -237,7 +237,7 @@ router.post('/:id/resolve', authMiddleware, async (req, res) => {
       return res.json({ 
         message: 'No resolution needed', 
         chat_id: destination.chat_id,
-        resolved: false 
+        updated: false 
       });
     }
 
@@ -247,7 +247,7 @@ router.post('/:id/resolve', authMiddleware, async (req, res) => {
         message: 'Chat ID resolved successfully',
         original: destination.chat_id,
         resolved: resolvedId,
-        resolved: true
+        updated: true
       });
     } catch (e) {
       return res.status(400).json({ 
