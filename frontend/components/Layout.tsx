@@ -18,6 +18,8 @@ import {
   XMarkIcon,
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
+  MagnifyingGlassIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation } from 'next-i18next';
 import Link from 'next/link';
@@ -85,12 +87,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navigation: MenuItem[] = [
     { name: t('dashboard'), href: '/dashboard', icon: HomeIcon },
-    { name: t('keywordManager'), href: '/keywords', icon: KeyIcon },
+    { name: 'Discovery', href: '/discovery', icon: MagnifyingGlassIcon },
     { name: t('channelManager'), href: '/channels', icon: ChatBubbleLeftRightIcon },
     { name: t('destinationManager'), href: '/destinations', icon: PaperAirplaneIcon },
-    { name: t('monitoringControl'), href: '/monitoring', icon: ChartBarIcon },
-    { name: t('logs'), href: '/logs', icon: DocumentTextIcon },
+    { name: t('keywordManager'), href: '/keywords', icon: KeyIcon },
+    { name: t('monitoringControl'), href: '/monitoring', icon: EyeIcon },
     { name: t('analytics'), href: '/analytics', icon: ChartBarIcon },
+    { name: t('logs'), href: '/logs', icon: DocumentTextIcon },
     { name: t('settings'), href: '/settings', icon: CogIcon },
   ];
 
@@ -144,7 +147,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </motion.button>
               </div>
               
-              <nav className="mt-6 px-6 space-y-2">
+              <nav className="mt-6 px-6 space-y-2 overflow-y-auto max-h-[calc(100vh-120px)]">
                 {navigation.map((item, index) => {
                   const Icon = item.icon;
                   const current = isCurrentPage(item.href);
@@ -221,7 +224,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
             </motion.div>
             
-            <nav className="mt-8 flex-1 px-6 space-y-2">
+            <nav className="mt-8 flex-1 px-6 space-y-2 overflow-y-auto">
               {navigation.map((item, index) => {
                 const Icon = item.icon;
                 const current = isCurrentPage(item.href);
@@ -298,7 +301,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                           isRTL ? 'rotate-90' : '-rotate-90'
                         )} />
                         <span className="text-gray-900 dark:text-white font-medium capitalize">
-                          {t(router.pathname.replace('/', '')) || router.pathname.replace('/', '')}
+                          {router.pathname === '/discovery' ? 'Discovery' : (t(router.pathname.replace('/', '')) || router.pathname.replace('/', ''))}
                         </span>
                       </>
                     )}
