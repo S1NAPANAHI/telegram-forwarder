@@ -11,7 +11,7 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 // Configure Winston logger
 const logger = winston.createLogger({
@@ -35,24 +35,18 @@ const allowedOrigins = [
   'http://localhost:3001', 
   'https://frontend-service-51uy.onrender.com',
   process.env.FRONTEND_URL
-].filter(Boolean); // Remove any undefined/null values
+].filter(Boolean);
 
-logger.info(`🌐 CORS allowed origins: ${allowedOrigins.join(', ')}`);
+console.log(`🌐 CORS allowed origins: ${allowedOrigins.join(', ')}`);
 
-// Middleware
+// Basic middleware
 app.use(helmet());
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    logger.warn(`❌ CORS blocked origin: ${origin}`);
-    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-    return callback(new Error(msg), false);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn(`❌ CORS blocked origin: ${origin}`);
+    return callback(new Error('CORS policy violation'), false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -66,21 +60,22 @@ app.use(cookieParser());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests from this IP'
 });
 app.use(limiter);
 
-// Health check endpoint
+// Health check endpoint - always available
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     service: 'telegram-forwarder-backend',
-    cors_origins: allowedOrigins,
     node_version: process.version,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    port: PORT,
+    cors_origins: allowedOrigins.length
   });
 });
 
@@ -88,63 +83,63 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Telegram Forwarder Backend API',
-    cors_origins: allowedOrigins,
-    environment: process.env.NODE_ENV || 'development',
     version: '1.0.0',
-    status: 'running'
+    status: 'running',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Routes with error handling
-const routes = [
-  { path: '/api/auth', file: './routes/auth.js' },
-  { path: '/api/keywords', file: './routes/keywords' },
-  { path: '/api/channels', file: './routes/channels' },
-  { path: '/api/destinations', file: './routes/destinations' },
-  { path: '/api/discovery', file: './routes/discovery' },
-  { path: '/api/client-auth', file: './routes/clientAuth' },
-  { path: '/api/bot', file: './routes/bot' },
-  { path: '/api/monitoring', file: './routes/monitoring' },
-  { path: '/api/logs', file: './routes/logs' },
-  { path: '/api/analytics', file: './routes/analytics' }
-];
-
-// Load routes with error handling
-routes.forEach(route => {
+// Load core routes with fallback handling
+function loadRoute(routePath, routeFile) {
   try {
-    const routeHandler = require(route.file);
-    app.use(route.path, routeHandler);
-    logger.info(`✅ Route loaded: ${route.path}`);
+    const routeHandler = require(routeFile);
+    app.use(routePath, routeHandler);
+    console.log(`✅ Route loaded: ${routePath}`);
+    return true;
   } catch (error) {
-    logger.warn(`⚠️ Failed to load route ${route.path}: ${error.message}`);
-    // Create a fallback route that returns 503
-    app.use(route.path, (req, res) => {
+    console.warn(`⚠️ Route ${routePath} failed: ${error.message}`);
+    // Create fallback route
+    app.use(routePath, (req, res) => {
       res.status(503).json({ 
         error: 'Service temporarily unavailable',
-        route: route.path,
-        message: `Route ${route.path} failed to load: ${error.message}`
+        route: routePath,
+        message: `Route failed to load: ${error.message}`,
+        timestamp: new Date().toISOString()
       });
     });
+    return false;
   }
-});
+}
 
-// 404 handler - Express v4 compatible
-app.use((req, res, next) => {
+// Core routes (most important first)
+console.log('Loading core routes...');
+loadRoute('/api/auth', './routes/auth.js');
+loadRoute('/api/channels', './routes/channels');
+loadRoute('/api/keywords', './routes/keywords');
+loadRoute('/api/destinations', './routes/destinations');
+loadRoute('/api/logs', './routes/logs');
+loadRoute('/api/analytics', './routes/analytics');
+
+// Optional routes
+console.log('Loading optional routes...');
+loadRoute('/api/bot', './routes/bot');
+loadRoute('/api/client-auth', './routes/clientAuth');
+loadRoute('/api/discovery', './routes/discovery');
+loadRoute('/api/monitoring', './routes/monitoring');
+
+// 404 handler
+app.use((req, res) => {
   res.status(404).json({ 
     error: 'Route not found',
     path: req.originalUrl,
-    method: req.method
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 });
 
-// Error handler - Express v4 compatible
+// Error handler
 app.use((error, req, res, next) => {
-  logger.error('Unhandled error:', {
-    message: error.message,
-    stack: error.stack,
-    url: req.url,
-    method: req.method
-  });
+  console.error('Unhandled error:', error.message);
   res.status(500).json({ 
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
@@ -152,96 +147,80 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Initialize monitoring manager after server starts
-async function initializeServices() {
+// Start server IMMEDIATELY
+console.log(`🚀 Starting server on port ${PORT}...`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`📦 Node.js version: ${process.version}`);
+  
+  // Now that server is listening, initialize services in background
+  setImmediate(() => {
+    initializeServicesInBackground();
+  });
+});
+
+// Background service initialization (non-blocking)
+async function initializeServicesInBackground() {
   try {
-    logger.info('🔄 Initializing services...');
+    console.log('🔄 Initializing background services...');
     
     // Check if monitoring manager exists
     const fs = require('fs');
     const monitoringPath = path.join(__dirname, 'services', 'monitoringManager.js');
     
     if (!fs.existsSync(monitoringPath)) {
-      logger.warn('⚠️ Monitoring manager not found, creating placeholder...');
+      console.log('⚠️ Monitoring manager not found, skipping...');
       return;
     }
     
-    // Initialize monitoring manager (this starts the Telegram bot)
+    // Try to initialize monitoring manager
     const monitoringManager = require('./services/monitoringManager');
     if (monitoringManager && typeof monitoringManager.initialize === 'function') {
       await monitoringManager.initialize();
-      logger.info('✅ All services initialized successfully');
+      console.log('✅ Background services initialized successfully');
     } else {
-      logger.warn('⚠️ Monitoring manager initialize method not available');
+      console.log('⚠️ Monitoring manager initialize method not available');
     }
     
   } catch (error) {
-    logger.error('❌ Failed to initialize services:', {
-      message: error?.message || error,
-      stack: error?.stack
-    });
-    // Don't exit - let the API server continue running even if bot fails
+    console.error('❌ Background service initialization failed:', error.message);
+    console.log('ℹ️ Server will continue running with limited functionality');
   }
 }
 
-// Start server
-const server = app.listen(PORT, '0.0.0.0', async () => {
-  logger.info(`🚀 Server is running on port ${PORT}`);
-  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
-  logger.info(`📦 Node.js version: ${process.version}`);
-  
-  // Initialize services after server is running
-  await initializeServices();
-});
+// Graceful shutdown
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
-// Graceful shutdown handlers
-const gracefulShutdown = async (signal) => {
-  logger.info(`${signal} received, shutting down gracefully`);
-  
-  try {
-    // Try to shutdown monitoring manager if available
-    const monitoringManager = require('./services/monitoringManager');
-    if (monitoringManager && typeof monitoringManager.shutdown === 'function') {
-      await monitoringManager.shutdown();
-    }
-  } catch (error) {
-    logger.warn('Error during monitoring manager shutdown:', error?.message || error);
-  }
+function gracefulShutdown(signal) {
+  console.log(`${signal} received, shutting down gracefully`);
   
   server.close((err) => {
     if (err) {
-      logger.error('Error during server shutdown:', err);
+      console.error('Error during server shutdown:', err);
       process.exit(1);
     }
-    logger.info('Process terminated gracefully');
+    console.log('Server closed');
     process.exit(0);
   });
   
   // Force exit after 10 seconds
   setTimeout(() => {
-    logger.warn('Force exiting after 10 seconds');
+    console.warn('Force exiting after timeout');
     process.exit(1);
   }, 10000);
-};
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', {
-    message: error.message,
-    stack: error.stack
-  });
+  console.error('Uncaught Exception:', error.message);
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection:', {
-    reason: reason,
-    promise: promise
-  });
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
   process.exit(1);
 });
 
