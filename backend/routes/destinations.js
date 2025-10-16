@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const supabase = require('../database/supabase');
+const chatIdResolver = require('../utils/chatIdResolver');
 
 // @route   POST /api/destinations
-// @desc    Add a new destination (description is optional and ignored if column doesn't exist)
+// @desc    Add a new destination with automatic @username resolution
 // @access  Private
 router.post('/', authMiddleware, async (req, res) => {
   try {
@@ -25,6 +26,17 @@ router.post('/', authMiddleware, async (req, res) => {
     platform = String(platform || 'telegram');
     is_active = !!is_active;
 
+    // ENHANCED: Auto-resolve @username to numeric ID for Telegram
+    if (platform === 'telegram' && chatIdResolver.needsResolution(chat_id)) {
+      try {
+        const resolvedId = await chatIdResolver.resolveChatId(chat_id);
+        console.log(`✅ Resolved destination ${chat_id} → ${resolvedId}`);
+        chat_id = resolvedId;
+      } catch (e) {
+        console.warn(`Could not resolve ${chat_id}, using as-is:`, e.message);
+      }
+    }
+
     // Prevent duplicates for the same user/platform/chat_id
     const { data: existing, error: existingError } = await supabase
       .from('destinations')
@@ -43,14 +55,16 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(409).json({ error: 'Destination already exists for this platform and chat_id' });
     }
 
-    // Build insert payload with only DB-supported columns per schema V1
+    // Build insert payload with proper timestamps
     const payload = {
       user_id: userId,
       type,
       platform,
       chat_id,
       name,
-      is_active
+      is_active,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
     const { data, error } = await supabase
@@ -109,20 +123,38 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // @route   PUT /api/destinations/:id
-// @desc    Update a destination
+// @desc    Update a destination with automatic @username resolution
 // @access  Private
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { name, chat_id, is_active, type, platform } = req.body || {};
+    let { name, chat_id, is_active, type, platform } = req.body || {};
 
     const updateData = {};
     if (name !== undefined) updateData.name = String(name).trim();
-    if (chat_id !== undefined) updateData.chat_id = String(chat_id).trim();
     if (is_active !== undefined) updateData.is_active = !!is_active;
     if (type !== undefined) updateData.type = String(type);
     if (platform !== undefined) updateData.platform = String(platform);
+    
+    // ENHANCED: Auto-resolve @username to numeric ID for Telegram
+    if (chat_id !== undefined) {
+      chat_id = String(chat_id).trim();
+      
+      if (platform === 'telegram' && chatIdResolver.needsResolution(chat_id)) {
+        try {
+          const resolvedId = await chatIdResolver.resolveChatId(chat_id);
+          console.log(`✅ Resolved destination ${chat_id} → ${resolvedId}`);
+          updateData.chat_id = resolvedId;
+        } catch (e) {
+          console.warn(`Could not resolve ${chat_id}, using as-is:`, e.message);
+          updateData.chat_id = chat_id;
+        }
+      } else {
+        updateData.chat_id = chat_id;
+      }
+    }
+    
     updateData.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
@@ -178,6 +210,55 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Delete destination error:', error.message);
     return res.status(500).json({ error: 'Failed to delete destination' });
+  }
+});
+
+// @route   POST /api/destinations/:id/resolve
+// @desc    Manually resolve @username to numeric ID
+// @access  Private
+router.post('/:id/resolve', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // Get the destination
+    const { data: destination, error: fetchError } = await supabase
+      .from('destinations')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !destination) {
+      return res.status(404).json({ error: 'Destination not found' });
+    }
+
+    if (!chatIdResolver.needsResolution(destination.chat_id)) {
+      return res.json({ 
+        message: 'No resolution needed', 
+        chat_id: destination.chat_id,
+        resolved: false 
+      });
+    }
+
+    try {
+      const resolvedId = await chatIdResolver.resolveAndUpdateDestination(id, destination.chat_id);
+      return res.json({ 
+        message: 'Chat ID resolved successfully',
+        original: destination.chat_id,
+        resolved: resolvedId,
+        resolved: true
+      });
+    } catch (e) {
+      return res.status(400).json({ 
+        error: 'Failed to resolve chat ID',
+        message: e.message,
+        chat_id: destination.chat_id
+      });
+    }
+  } catch (error) {
+    console.error('Resolve destination error:', error.message);
+    return res.status(500).json({ error: 'Failed to resolve destination' });
   }
 });
 
