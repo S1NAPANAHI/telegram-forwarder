@@ -119,6 +119,7 @@ loadRoute('/api/keywords', './routes/keywords');
 loadRoute('/api/destinations', './routes/destinations');
 loadRoute('/api/logs', './routes/logs');
 loadRoute('/api/analytics', './routes/analytics');
+loadRoute('/api/messages', './routes/messages'); // NEW: Message feed routes
 
 // Bot and automation routes
 loadRoute('/api/bot', './routes/bot');
