@@ -4,7 +4,6 @@
   "description": "Telegram Forwarder Backend API",
   "main": "server.js",
   "scripts": {
-    "prestart": "node deploy-check.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "prebuild": "node deploy-check.js",
