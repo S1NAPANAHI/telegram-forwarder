@@ -15,10 +15,12 @@ const WEBAPP_URL = `${FRONTEND_URL}/webapp`;
 // Simple i18n
 const i18n = {
   en: {
-    welcome: (name) => `🎉 Welcome to Telegram Forwarder Bot, ${name}!\n\nUse /help for all commands or tap the Web App to configure.`,
+    welcome: (name) => `🎉 Welcome to Telegram Forwarder Bot, ${name}!\n\nUse /help for all commands or visit the dashboard to configure.`,
+    welcome_group: (name) => `🎉 Hi ${name}! I'm now monitoring this chat.\n\n📝 Dashboard: ${WEBAPP_URL}\n\nUse /help for commands.`,
     help: '🆘 Help\n\n/start – Start\n/help – This help\n/status – Bot and your config status\n/webapp – Open management panel\n/menu – Quick actions\n/discover – Scan chats and admin status\n/language – Change language\n/ping – Test bot response',
     status: (count) => `📊 Bot Status\n\nMonitored Channels: ${count}\nUpdated: ${new Date().toLocaleString()}`,
     webapp: '🌐 Open the management Web App:',
+    webapp_link: `🌐 Dashboard: ${WEBAPP_URL}`,
     quick: '🎛️ Quick Actions',
     discover_start: '🔍 Starting discovery scan... This may take a moment.',
     discover_summary: (g, c, adminG, adminC) => `🔎 Discovery Summary\n\nGroups: ${g} (admin in ${adminG})\nChannels: ${c} (admin in ${adminC})`,
@@ -32,10 +34,12 @@ const i18n = {
     btn_fa: 'فارسی'
   },
   fa: {
-    welcome: (name) => `🎉 به ربات فوروارد تلگرام خوش آمدی، ${name}!\n\nبرای دیدن دستورات /help را بزن یا وب‌اپ را باز کن.`,
+    welcome: (name) => `🎉 به ربات فوروارد تلگرام خوش آمدی، ${name}!\n\nبرای تنظیمات از داشبورد استفاده کنید.`,
+    welcome_group: (name) => `🎉 سلام ${name}! من الان این چت رو زیر نظر دارم.\n\n📝 داشبورد: ${WEBAPP_URL}\n\nبرای دستورات /help رو بزن.`,
     help: '🆘 راهنما\n\n/start – شروع\n/help – این راهنما\n/status – وضعیت ربات و تنظیمات شما\n/webapp – باز کردن پنل مدیریت\n/menu – اقدامات سریع\n/discover – اسکن چت‌ها و سطح دسترسی ادمین\n/language – تغییر زبان\n/ping – تست پاسخ ربات',
     status: (count) => `📊 وضعیت ربات\n\nکانال‌های تحت نظارت: ${count}\nبه‌روزرسانی: ${new Date().toLocaleString('fa-IR')}`,
     webapp: '🌐 پنل مدیریت را باز کن:',
+    webapp_link: `🌐 داشبورد: ${WEBAPP_URL}`,
     quick: '🎛️ اقدامات سریع',
     discover_start: '🔍 شروع اسکن... چند لحظه صبر کنید.',
     discover_summary: (g, c, adminG, adminC) => `🔎 خلاصه کشف\n\nگروه‌ها: ${g} (ادمین در ${adminG})\nکانال‌ها: ${c} (ادمین در ${adminC})`,
@@ -247,7 +251,7 @@ class TelegramMonitor {
           username: data.username, 
           is_bot_admin: isAdmin, 
           is_bot_member: true 
-        });
+        }, targetUserId);
       } catch (e) { 
         console.error('Error saving discovered chat (guarded):', e.message); 
       }
@@ -284,18 +288,31 @@ class TelegramMonitor {
       try { 
         const lang = await getUserLang(msg.from?.id); 
         const t = i18n[lang]; 
-        const userName = msg.from?.first_name || 'User'; 
+        const userName = msg.from?.first_name || 'User';
+        const isPrivateChat = msg.chat.type === 'private';
         
-        // Fixed keyboard structure
-        const keyboard = { 
-          inline_keyboard: [
-            [{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }],
-            [{ text: t.btn_help, callback_data: 'help' }, { text: t.btn_status, callback_data: 'status' }],
-            [{ text: t.btn_discover, callback_data: 'discover' }]
-          ] 
-        }; 
-        
-        await this.bot.sendMessage(msg.chat.id, t.welcome(userName), { reply_markup: keyboard }); 
+        if (isPrivateChat) {
+          // Private chat: Use web_app button
+          const keyboard = { 
+            inline_keyboard: [
+              [{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }],
+              [{ text: t.btn_help, callback_data: 'help' }, { text: t.btn_status, callback_data: 'status' }],
+              [{ text: t.btn_discover, callback_data: 'discover' }]
+            ] 
+          }; 
+          
+          await this.bot.sendMessage(msg.chat.id, t.welcome(userName), { reply_markup: keyboard }); 
+        } else {
+          // Group/channel: Use simple callback buttons and text link
+          const keyboard = { 
+            inline_keyboard: [
+              [{ text: t.btn_help, callback_data: 'help' }, { text: t.btn_status, callback_data: 'status' }],
+              [{ text: t.btn_discover, callback_data: 'discover' }]
+            ] 
+          }; 
+          
+          await this.bot.sendMessage(msg.chat.id, t.welcome_group(userName), { reply_markup: keyboard }); 
+        }
       } catch (e) { 
         console.error('/start error:', e?.message || e); 
         try { 
@@ -331,11 +348,17 @@ class TelegramMonitor {
       try { 
         const lang = await getUserLang(msg.from?.id); 
         const t = i18n[lang]; 
-        await this.bot.sendMessage(msg.chat.id, t.webapp, { 
-          reply_markup: { 
-            inline_keyboard: [[{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }]] 
-          } 
-        }); 
+        const isPrivateChat = msg.chat.type === 'private';
+        
+        if (isPrivateChat) {
+          await this.bot.sendMessage(msg.chat.id, t.webapp, { 
+            reply_markup: { 
+              inline_keyboard: [[{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }]] 
+            } 
+          });
+        } else {
+          await this.bot.sendMessage(msg.chat.id, t.webapp_link);
+        }
       } catch (e) { 
         console.error('/webapp error:', e?.message || e); 
       } 
@@ -345,15 +368,28 @@ class TelegramMonitor {
       try { 
         const lang = await getUserLang(msg.from?.id); 
         const t = i18n[lang]; 
-        await this.bot.sendMessage(msg.chat.id, t.quick, { 
-          reply_markup: { 
-            inline_keyboard: [
-              [{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }],
-              [{ text: t.btn_status, callback_data: 'status' }, { text: t.btn_help, callback_data: 'help' }],
-              [{ text: t.btn_discover, callback_data: 'discover' }]
-            ] 
-          } 
-        }); 
+        const isPrivateChat = msg.chat.type === 'private';
+        
+        if (isPrivateChat) {
+          await this.bot.sendMessage(msg.chat.id, t.quick, { 
+            reply_markup: { 
+              inline_keyboard: [
+                [{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }],
+                [{ text: t.btn_status, callback_data: 'status' }, { text: t.btn_help, callback_data: 'help' }],
+                [{ text: t.btn_discover, callback_data: 'discover' }]
+              ] 
+            } 
+          }); 
+        } else {
+          await this.bot.sendMessage(msg.chat.id, t.quick, { 
+            reply_markup: { 
+              inline_keyboard: [
+                [{ text: t.btn_status, callback_data: 'status' }, { text: t.btn_help, callback_data: 'help' }],
+                [{ text: t.btn_discover, callback_data: 'discover' }]
+              ] 
+            } 
+          }); 
+        }
       } catch (e) { 
         console.error('/menu error:', e?.message || e); 
       } 
@@ -406,10 +442,16 @@ class TelegramMonitor {
         await this.bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML' }); 
         
         if (chats.length > 0) { 
+          const isPrivateChat = msg.chat.type === 'private';
           const keyboard = { 
             inline_keyboard: [[{ text: '🌐 Open Dashboard', web_app: { url: `${WEBAPP_URL}?tab=channels` } }]] 
           }; 
-          await this.bot.sendMessage(msg.chat.id, '💡 Visit your dashboard to configure monitoring for discovered chats:', { reply_markup: keyboard }); 
+          
+          if (isPrivateChat) {
+            await this.bot.sendMessage(msg.chat.id, '💡 Visit your dashboard to configure monitoring for discovered chats:', { reply_markup: keyboard }); 
+          } else {
+            await this.bot.sendMessage(msg.chat.id, `💡 Visit your dashboard to configure monitoring:\n${WEBAPP_URL}?tab=channels`); 
+          }
         }
       } catch (e) { 
         console.error('/discover error:', e?.message || e); 
@@ -595,6 +637,8 @@ class TelegramMonitor {
             msg.chat.id, 
             msg.message_id
           ); 
+          
+          console.log(`✅ Forwarded message from ${msg.chat.id} to ${dest.chat_id}`);
           
           await LoggingService.logForwarding({ 
             user_id: userId, 
