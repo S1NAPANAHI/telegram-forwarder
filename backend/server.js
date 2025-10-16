@@ -111,24 +111,61 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Initialize monitoring manager after server starts
+async function initializeServices() {
+  try {
+    logger.info('🔄 Initializing services...');
+    
+    // Initialize monitoring manager (this starts the Telegram bot)
+    const monitoringManager = require('./services/monitoringManager');
+    await monitoringManager.initialize();
+    
+    logger.info('✅ All services initialized successfully');
+  } catch (error) {
+    logger.error('❌ Failed to initialize services:', error?.message || error);
+    // Don't exit - let the API server continue running even if bot fails
+  }
+}
+
 // Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   logger.info(`🚀 Server is running on port ${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+  
+  // Initialize services after server is running
+  await initializeServices();
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  
+  try {
+    // Shutdown monitoring manager
+    const monitoringManager = require('./services/monitoringManager');
+    await monitoringManager.shutdown();
+  } catch (error) {
+    logger.warn('Error during monitoring manager shutdown:', error?.message || error);
+  }
+  
   server.close(() => {
     logger.info('Process terminated');
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
+  
+  try {
+    // Shutdown monitoring manager
+    const monitoringManager = require('./services/monitoringManager');
+    await monitoringManager.shutdown();
+  } catch (error) {
+    logger.warn('Error during monitoring manager shutdown:', error?.message || error);
+  }
+  
   server.close(() => {
     logger.info('Process terminated');
     process.exit(0);
