@@ -34,22 +34,19 @@ class TelegramMonitor {
       this.bot = new TelegramBot(token, { polling: false });
       this.chatDiscovery = new ChatDiscoveryService(this.bot);
 
+      // Register command handlers
+      this.setupCommandHandlers();
+
       // Identify bot
-      let me = null;
       try {
-        me = await this.bot.getMe();
+        const me = await this.bot.getMe();
         console.log(`Telegram bot connected: @${me.username}`);
       } catch (e) {
         console.error('getMe failed:', e?.message || e);
       }
 
       // Reset webhook then set
-      try {
-        await this.bot.deleteWebHook({ drop_pending_updates: false });
-        console.log('Webhook deleted (cleanup)');
-      } catch (e) {
-        console.warn('deleteWebHook warn:', e?.message || e);
-      }
+      try { await this.bot.deleteWebHook({ drop_pending_updates: false }); } catch {}
       try {
         await this.bot.setWebHook(this.webhookUrl);
         console.log('Webhook set OK →', this.webhookUrl);
@@ -57,40 +54,109 @@ class TelegramMonitor {
         console.error('setWebHook failed:', e?.message || e);
       }
 
-      // Commands & menu
+      // Commands list & menu
       try {
         await this.bot.setMyCommands([
           { command: 'start', description: 'Start using the bot' },
           { command: 'help', description: 'Show help and available commands' },
           { command: 'status', description: 'Bot status and health' },
           { command: 'webapp', description: 'Open management panel' },
-          { command: 'language', description: 'Change language' },
-          { command: 'discover', description: 'Scan chats and update admin status' },
           { command: 'menu', description: 'Show quick action buttons' }
         ]);
-        console.log('✓ Registered bot commands');
-      } catch (e) {
-        console.error('setMyCommands failed:', e?.message || e);
-      }
+      } catch {}
       try {
         await this.bot.setChatMenuButton({ menu_button: { type: 'web_app', text: 'Open Panel', web_app: { url: WEBAPP_URL } } });
-        console.log('✓ Set chat menu button');
-      } catch (e) {
-        console.error('setChatMenuButton failed:', e?.message || e);
-      }
+      } catch {}
 
       // Load channels
       try {
         const channels = await ChannelService.getActiveChannelsByPlatform('telegram');
         for (const channel of channels) await this.startMonitoringChannel(channel);
-      } catch (e) {
-        console.error('Channel load failed:', e?.message || e);
-      }
+      } catch (e) { console.error('Channel load failed:', e?.message || e); }
 
       console.log('Telegram Monitor initialized (webhook mode)');
     } catch (error) {
       console.error('TelegramMonitor initialize error:', error?.message || error);
     }
+  }
+
+  setupCommandHandlers() {
+    // /start
+    this.bot.onText(/^\/start\b/i, async (msg) => {
+      const userName = msg.from?.first_name || 'User';
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🌐 Open Web App', web_app: { url: WEBAPP_URL } }],
+          [{ text: '❓ Help', callback_data: 'help' }, { text: '📊 Status', callback_data: 'status' }]
+        ]
+      };
+      try {
+        await this.bot.sendMessage(msg.chat.id,
+          `🎉 Welcome to Telegram Forwarder Bot, ${userName}!\n\nUse /help for all commands or tap the Web App to configure.`,
+          { reply_markup: keyboard }
+        );
+      } catch (e) { console.error('/start sendMessage error:', e?.message || e); }
+    });
+
+    // /help
+    this.bot.onText(/^\/help\b/i, async (msg) => {
+      try {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          '🆘 Help\n\n/start – Start\n/help – This help\n/status – Bot and your config status\n/webapp – Open management panel\n/menu – Quick actions'
+        );
+      } catch (e) { console.error('/help error:', e?.message || e); }
+    });
+
+    // /status
+    this.bot.onText(/^\/status\b/i, async (msg) => {
+      try {
+        const monitoredCount = this.monitoredChannels.size;
+        await this.bot.sendMessage(
+          msg.chat.id,
+          `📊 Bot Status\n\nMonitored Channels: ${monitoredCount}\nUpdated: ${new Date().toLocaleString()}`
+        );
+      } catch (e) { console.error('/status error:', e?.message || e); }
+    });
+
+    // /webapp
+    this.bot.onText(/^\/webapp\b/i, async (msg) => {
+      try {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          '🌐 Open the management Web App:',
+          { reply_markup: { inline_keyboard: [[{ text: 'Open Web App', web_app: { url: WEBAPP_URL } }]] } }
+        );
+      } catch (e) { console.error('/webapp error:', e?.message || e); }
+    });
+
+    // /menu
+    this.bot.onText(/^\/menu\b/i, async (msg) => {
+      try {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          '🎛️ Quick Actions',
+          { reply_markup: { inline_keyboard: [
+            [{ text: '🌐 Web App', web_app: { url: WEBAPP_URL } }],
+            [{ text: '📊 Status', callback_data: 'status' }, { text: '❓ Help', callback_data: 'help' }]
+          ] } }
+        );
+      } catch (e) { console.error('/menu error:', e?.message || e); }
+    });
+
+    // callbacks
+    this.bot.on('callback_query', async (cb) => {
+      const data = cb.data;
+      try { await this.bot.answerCallbackQuery(cb.id); } catch {}
+      try {
+        if (data === 'help') {
+          await this.bot.sendMessage(cb.message.chat.id, 'Use /help for full details, or open the Web App.');
+        } else if (data === 'status') {
+          const monitoredCount = this.monitoredChannels.size;
+          await this.bot.sendMessage(cb.message.chat.id, `Monitored Channels: ${monitoredCount}`);
+        }
+      } catch (e) { console.error('callback error:', e?.message || e); }
+    });
   }
 
   async startMonitoringChannel(channel) {
