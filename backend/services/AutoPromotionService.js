@@ -118,71 +118,58 @@ class AutoPromotionService {
 
   /**
    * Promote a single discovered chat to monitored channel
+   * FIXED: Use ON CONFLICT upsert to prevent duplicate key errors
    */
   async promoteChat(discoveredChat) {
     try {
       const supabase = require('../database/supabase');
       const { chat_id, chat_type, chat_title, chat_username, user_id } = discoveredChat;
 
-      // Normalize channel URL
-      let channelUrl;
-      if (chat_username) {
-        channelUrl = `https://t.me/${chat_username}`;
-      } else {
-        channelUrl = chat_id; // Use numeric ID
-      }
+      // FIXED: Always use platform_specific_id as channel_url for Telegram
+      // This ensures consistent ID resolution in MonitoringManager
+      const channelUrl = chat_id; // Use numeric chat_id directly
+      const channelName = chat_title || `Chat ${chat_id}`;
 
-      // Check if channel already exists for this user
-      const { data: existingChannel } = await supabase
+      // FIXED: Use ON CONFLICT to handle existing channels gracefully
+      const { data: channelResult, error: insertError } = await supabase
         .from('channels')
-        .select('id')
-        .eq('user_id', user_id)
-        .eq('channel_url', channelUrl)
-        .maybeSingle();
-
-      if (existingChannel) {
-        // Already exists, just mark as promoted
-        await supabase
-          .from('discovered_chats')
-          .update({ is_promoted: true })
-          .eq('id', discoveredChat.id);
-        
-        logger.debug(`Channel already exists: ${chat_title || chat_id}`);
-        return false;
-      }
-
-      // Create new channel record
-      const channelData = {
-        user_id: user_id,
-        platform: 'telegram',
-        channel_url: channelUrl,
-        channel_name: chat_title || `Chat ${chat_id}`,
-        is_active: true,
-        admin_status: true,
-        monitoring_method: 'bot_api',
-        platform_specific_id: chat_id,
-        discovery_source: 'auto_discovered',
-        created_at: new Date().toISOString()
-      };
-
-      const { data: newChannel, error: insertError } = await supabase
-        .from('channels')
-        .insert(channelData)
-        .select('*')
-        .single();
+        .upsert({
+          user_id: user_id,
+          platform: 'telegram',
+          channel_url: channelUrl,
+          channel_name: channelName,
+          is_active: true,
+          admin_status: true,
+          monitoring_method: 'bot_api',
+          platform_specific_id: chat_id,
+          discovery_source: 'auto_discovered',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,channel_url',
+          ignoreDuplicates: false
+        })
+        .select('*');
 
       if (insertError) {
-        logger.error(`Error creating channel for ${chat_id}:`, insertError.message);
+        logger.error(`Error upserting channel for ${chat_id}:`, insertError.message);
         return false;
       }
 
       // Mark discovered chat as promoted
-      await supabase
+      const { error: updateError } = await supabase
         .from('discovered_chats')
-        .update({ is_promoted: true })
+        .update({ 
+          is_promoted: true,
+          updated_at: new Date().toISOString() 
+        })
         .eq('id', discoveredChat.id);
 
-      logger.info(`✅ Auto-promoted: ${chat_title || chat_id} (${chat_id}) for user ${user_id}`);
+      if (updateError) {
+        logger.warn(`Error marking chat as promoted:`, updateError.message);
+      }
+
+      logger.info(`✅ Auto-promoted: ${channelName} (${chat_id}) for user ${user_id}`);
       return true;
     } catch (error) {
       logger.error(`Error in promoteChat for ${discoveredChat.chat_id}:`, error.message);
@@ -192,6 +179,7 @@ class AutoPromotionService {
 
   /**
    * Ensure user has at least one active destination
+   * ENHANCED: Auto-resolve @username destinations
    */
   async ensureUserHasDestination(userId) {
     try {
@@ -200,12 +188,19 @@ class AutoPromotionService {
       // Check if user already has active destinations
       const { data: existingDestinations } = await supabase
         .from('destinations')
-        .select('id')
+        .select('id, chat_id')
         .eq('user_id', userId)
         .eq('is_active', true)
         .limit(1);
 
       if (existingDestinations && existingDestinations.length > 0) {
+        // Auto-resolve any @username destinations
+        for (const dest of existingDestinations) {
+          if (dest.chat_id && dest.chat_id.startsWith('@')) {
+            const chatIdResolver = require('../utils/chatIdResolver');
+            await chatIdResolver.resolveAndUpdateDestination(dest.id, dest.chat_id);
+          }
+        }
         return; // User already has destinations
       }
 
@@ -214,7 +209,7 @@ class AutoPromotionService {
       if (!defaultDestination) {
         // Only log once per user to avoid spam
         if (!this.processedUsers.has(userId)) {
-          logger.info(`⚠️  User ${userId} has no destinations. Add one manually or set DEFAULT_TELEGRAM_DESTINATION_CHAT_ID env var`);
+          logger.info(`⚠️ User ${userId} has no destinations. Add one manually or set DEFAULT_TELEGRAM_DESTINATION_CHAT_ID env var`);
           this.processedUsers.add(userId);
         }
         return;
@@ -222,24 +217,34 @@ class AutoPromotionService {
 
       // Create default destination for user
       const destinationData = {
+        id: require('crypto').randomUUID(),
         user_id: userId,
         name: 'Auto-created Default',
-        type: 'private_chat', // Assume private chat, adjust if needed
+        type: 'private_chat',
         platform: 'telegram',
         chat_id: defaultDestination,
         is_active: true,
-        created_via: 'auto_promotion',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       const { error: destError } = await supabase
         .from('destinations')
-        .insert(destinationData);
+        .upsert(destinationData, {
+          onConflict: 'user_id,chat_id',
+          ignoreDuplicates: false
+        });
 
       if (destError) {
         logger.error(`Error creating default destination for user ${userId}:`, destError.message);
       } else {
         logger.info(`✅ Created default destination for user ${userId}: ${defaultDestination}`);
+        
+        // Auto-resolve if it's a @username
+        if (defaultDestination.startsWith('@')) {
+          const chatIdResolver = require('../utils/chatIdResolver');
+          await chatIdResolver.resolveAndUpdateDestination(destinationData.id, defaultDestination);
+        }
       }
     } catch (error) {
       logger.error(`Error ensuring destination for user ${userId}:`, error.message);
@@ -274,10 +279,12 @@ class AutoPromotionService {
    * Get service status
    */
   getStatus() {
+    const chatIdResolver = require('../utils/chatIdResolver');
     return {
       isRunning: this.isRunning,
       processedUsers: this.processedUsers.size,
-      hasDefaultDestination: !!process.env.DEFAULT_TELEGRAM_DESTINATION_CHAT_ID
+      hasDefaultDestination: !!process.env.DEFAULT_TELEGRAM_DESTINATION_CHAT_ID,
+      resolverCacheSize: chatIdResolver.getCacheStats().size
     };
   }
 }
