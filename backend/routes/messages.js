@@ -31,12 +31,8 @@ router.get('/feed', authMiddleware, async (req, res) => {
 
     console.log(`[messages/feed] Retrieved ${messages?.length || 0} messages`);
     
-    res.json({
-      success: true,
-      messages: messages || [],
-      count: messages?.length || 0,
-      timestamp: new Date().toISOString()
-    });
+    // Return array format for frontend compatibility
+    res.json(messages || []);
   } catch (error) {
     console.error('Error fetching message feed:', error.message);
     res.status(500).json({ 
@@ -78,8 +74,40 @@ router.get('/queue', authMiddleware, async (req, res) => {
       });
     }
 
-    // Try to get statistics using the function if it exists
-    let stats = {
+    console.log(`[messages/queue] Retrieved ${messages?.length || 0} messages`);
+    
+    // Return array format for frontend compatibility
+    res.json(messages || []);
+  } catch (error) {
+    console.error('Error fetching message queue:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch message queue',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/messages/stats
+ * Get message statistics for the authenticated user
+ */
+router.get('/stats', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log(`[messages/stats] Fetching stats for user ${userId}`);
+
+    // Get feed count
+    const { count: feedCount, error: feedError } = await supabase
+      .from('message_feed')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if (feedError) {
+      console.error('[messages/stats] Feed count error:', feedError);
+    }
+
+    // Get queue stats
+    let queueStats = {
       total_messages: 0,
       pending_messages: 0,
       delivered_messages: 0,
@@ -87,29 +115,39 @@ router.get('/queue', authMiddleware, async (req, res) => {
     };
     
     try {
-      const { data: statsData, error: statsError } = await supabase
+      const { data: statsData, error: queueError } = await supabase
         .rpc('get_message_queue_stats', { p_user_id: userId });
       
-      if (!statsError && statsData?.[0]) {
-        stats = statsData[0];
+      if (!queueError && statsData?.[0]) {
+        queueStats = statsData[0];
       }
     } catch (statsError) {
-      console.log('[messages/queue] Stats function not available, using basic stats');
+      console.log('[messages/stats] Stats function not available, using basic count');
+      // Fallback: basic count
+      const { count: totalCount } = await supabase
+        .from('message_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      queueStats.total_messages = totalCount || 0;
     }
 
-    console.log(`[messages/queue] Retrieved ${messages?.length || 0} messages`);
+    const stats = {
+      feed_messages: feedCount || 0,
+      queue_stats: queueStats,
+      last_updated: new Date().toISOString()
+    };
+
+    console.log(`[messages/stats] Stats retrieved for user ${userId}`);
     
     res.json({
       success: true,
-      messages: messages || [],
-      count: messages?.length || 0,
-      stats: stats,
-      timestamp: new Date().toISOString()
+      stats: stats
     });
   } catch (error) {
-    console.error('Error fetching message queue:', error.message);
+    console.error('Error fetching message statistics:', error.message);
     res.status(500).json({ 
-      error: 'Failed to fetch message queue',
+      error: 'Failed to fetch message statistics',
       message: error.message 
     });
   }
@@ -222,81 +260,11 @@ router.post('/retry/:messageId', authMiddleware, async (req, res) => {
 });
 
 /**
- * GET /api/messages/stats
- * Get message statistics for the authenticated user
- */
-router.get('/stats', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    console.log(`[messages/stats] Fetching stats for user ${userId}`);
-
-    // Get feed count
-    const { count: feedCount, error: feedError } = await supabase
-      .from('message_feed')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    if (feedError) {
-      console.error('[messages/stats] Feed count error:', feedError);
-    }
-
-    // Get queue stats
-    let queueStats = {
-      total_messages: 0,
-      pending_messages: 0,
-      delivered_messages: 0,
-      failed_messages: 0
-    };
-    
-    try {
-      const { data: statsData, error: queueError } = await supabase
-        .rpc('get_message_queue_stats', { p_user_id: userId });
-      
-      if (!queueError && statsData?.[0]) {
-        queueStats = statsData[0];
-      }
-    } catch (statsError) {
-      console.log('[messages/stats] Stats function not available, using basic count');
-      // Fallback: basic count
-      const { count: totalCount } = await supabase
-        .from('message_queue')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      
-      queueStats.total_messages = totalCount || 0;
-    }
-
-    const stats = {
-      feed_messages: feedCount || 0,
-      queue_stats: queueStats,
-      last_updated: new Date().toISOString()
-    };
-
-    console.log(`[messages/stats] Stats retrieved for user ${userId}`);
-    
-    res.json({
-      success: true,
-      stats: stats
-    });
-  } catch (error) {
-    console.error('Error fetching message statistics:', error.message);
-    res.status(500).json({ 
-      error: 'Failed to fetch message statistics',
-      message: error.message 
-    });
-  }
-});
-
-/**
  * POST /api/messages/test
  * Create a test message for debugging (development only)
  */
 router.post('/test', authMiddleware, async (req, res) => {
   try {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(403).json({ error: 'Test endpoint disabled in production' });
-    }
-
     const userId = req.user.id;
     const { title = 'Test Message', content = 'This is a test message from the API' } = req.body;
     
