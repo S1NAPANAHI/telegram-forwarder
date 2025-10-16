@@ -19,7 +19,8 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
   MagnifyingGlassIcon,
-  EyeIcon
+  EyeIcon,
+  RssIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation } from 'next-i18next';
 import Link from 'next/link';
@@ -88,6 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigation: MenuItem[] = [
     { name: t('dashboard'), href: '/dashboard', icon: HomeIcon },
     { name: 'Discovery', href: '/discovery', icon: MagnifyingGlassIcon },
+    { name: 'Live Feed', href: '/feed', icon: RssIcon },
     { name: t('channelManager'), href: '/channels', icon: ChatBubbleLeftRightIcon },
     { name: t('destinationManager'), href: '/destinations', icon: PaperAirplaneIcon },
     { name: t('keywordManager'), href: '/keywords', icon: KeyIcon },
@@ -301,7 +303,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                           isRTL ? 'rotate-90' : '-rotate-90'
                         )} />
                         <span className="text-gray-900 dark:text-white font-medium capitalize">
-                          {router.pathname === '/discovery' ? 'Discovery' : (t(router.pathname.replace('/', '')) || router.pathname.replace('/', ''))}
+                          {router.pathname === '/discovery' ? 'Discovery' : router.pathname === '/feed' ? 'Live Feed' : (t(router.pathname.replace('/', '')) || router.pathname.replace('/', ''))}
                         </span>
                       </>
                     )}
