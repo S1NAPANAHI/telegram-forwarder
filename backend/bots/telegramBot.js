@@ -5,6 +5,7 @@ const ChannelService = require('../services/ChannelService');
 const DestinationService = require('../services/DestinationService');
 const LoggingService = require('../services/LoggingService');
 const ChatDiscoveryService = require('../services/ChatDiscoveryService');
+const TelegramDiscoveryService = require('../services/TelegramDiscoveryService');
 const { forwardMessage, checkDuplicate } = require('../services/forwardingService');
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://frontend-service-51uy.onrender.com';
@@ -69,6 +70,7 @@ class TelegramMonitor {
     this.bot = null; // lazily created
     this.monitoredChannels = new Map();
     this.chatDiscovery = null; // lazily created after bot
+    this.telegramDiscoveryService = null; // Enhanced discovery service
     TelegramMonitor.instance = this;
   }
 
@@ -83,6 +85,7 @@ class TelegramMonitor {
       // Create bot lazily
       this.bot = new TelegramBot(token, { polling: false });
       this.chatDiscovery = new ChatDiscoveryService(this.bot);
+      this.telegramDiscoveryService = new TelegramDiscoveryService();
 
       // Register command handlers
       this.setupCommandHandlers();
@@ -197,27 +200,69 @@ class TelegramMonitor {
       } catch (e) { console.error('/menu error:', e?.message || e); }
     });
 
-    // /discover
+    // Enhanced /discover command with new TelegramDiscoveryService
     this.bot.onText(/^\/discover\b/i, async (msg) => {
       const lang = await getUserLang(msg.from?.id);
       const t = i18n[lang];
+      
       try {
         await this.bot.sendMessage(msg.chat.id, t.discover_start);
-        // quick summary (from services if available)
-        let groups = 0, channels = 0, adminGroups = 0, adminChannels = 0;
+        
+        // Get user ID from database
+        let userId = null;
         try {
-          const stats = await ChatDiscoveryService.getSummary?.(msg.from.id);
-          if (stats) {
-            groups = stats.groups || 0;
-            channels = stats.channels || 0;
-            adminGroups = stats.adminGroups || 0;
-            adminChannels = stats.adminChannels || 0;
+          const user = await UserService.getByTelegramId(msg.from.id);
+          if (!user) {
+            // Create user if doesn't exist
+            const newUser = await UserService.createOrUpdateUser({
+              telegram_id: msg.from.id,
+              username: msg.from.username,
+              first_name: msg.from.first_name,
+              last_name: msg.from.last_name,
+              language: lang
+            });
+            userId = newUser.id;
+          } else {
+            userId = user.id;
           }
-        } catch {}
-        await this.bot.sendMessage(msg.chat.id, t.discover_summary(groups, channels, adminGroups, adminChannels));
-        // kick off background scan
-        try { await ChatDiscoveryService.scan?.(msg.from.id); } catch {}
-      } catch (e) { console.error('/discover error:', e?.message || e); }
+        } catch (userError) {
+          console.error('Error getting/creating user:', userError);
+          await this.bot.sendMessage(msg.chat.id, '❌ Error: Could not identify user. Please try again.');
+          return;
+        }
+        
+        if (!userId) {
+          await this.bot.sendMessage(msg.chat.id, '❌ Error: User identification failed. Please contact support.');
+          return;
+        }
+        
+        // Trigger comprehensive discovery
+        const discoveredChats = await this.telegramDiscoveryService.discoverAllChats(userId);
+        
+        // Generate and send formatted response
+        const response = this.telegramDiscoveryService.formatDiscoveryResponse(discoveredChats);
+        await this.bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML' });
+        
+        // Send additional info about accessing the web dashboard
+        if (discoveredChats.length > 0) {
+          const keyboard = {
+            inline_keyboard: [
+              [{ text: t.btn_webapp, web_app: { url: `${WEBAPP_URL}?tab=channels` } }]
+            ]
+          };
+          await this.bot.sendMessage(
+            msg.chat.id, 
+            '🌐 Open your dashboard to configure monitoring for discovered chats:',
+            { reply_markup: keyboard }
+          );
+        }
+      } catch (e) { 
+        console.error('/discover error:', e?.message || e);
+        await this.bot.sendMessage(
+          msg.chat.id, 
+          '❌ Discovery failed. Please check bot permissions and try again.'
+        );
+      }
     });
 
     // /language
@@ -248,18 +293,24 @@ class TelegramMonitor {
           const monitoredCount = this.monitoredChannels.size;
           await this.bot.sendMessage(cb.message.chat.id, t.status(monitoredCount));
         } else if (data === 'discover') {
-          const lang = await getUserLang(cb.from?.id); const t = i18n[lang];
-          let groups = 0, channels = 0, adminGroups = 0, adminChannels = 0;
+          // Trigger discovery via callback
+          const lang = await getUserLang(cb.from?.id);
+          const t = i18n[lang];
+          
           try {
-            const stats = await ChatDiscoveryService.getSummary?.(cb.from.id);
-            if (stats) {
-              groups = stats.groups || 0;
-              channels = stats.channels || 0;
-              adminGroups = stats.adminGroups || 0;
-              adminChannels = stats.adminChannels || 0;
+            await this.bot.sendMessage(cb.message.chat.id, t.discover_start);
+            
+            // Get user ID
+            const user = await UserService.getByTelegramId(cb.from.id);
+            if (user) {
+              const discoveredChats = await this.telegramDiscoveryService.discoverAllChats(user.id);
+              const response = this.telegramDiscoveryService.formatDiscoveryResponse(discoveredChats);
+              await this.bot.sendMessage(cb.message.chat.id, response, { parse_mode: 'HTML' });
             }
-          } catch {}
-          await this.bot.sendMessage(cb.message.chat.id, t.discover_summary(groups, channels, adminGroups, adminChannels));
+          } catch (err) {
+            console.error('Discovery callback error:', err);
+            await this.bot.sendMessage(cb.message.chat.id, '❌ Discovery failed. Please try the /discover command.');
+          }
         } else if (data === 'lang_en' || data === 'lang_fa') {
           const lang = data === 'lang_en' ? 'en' : 'fa';
           await setUserLang(cb.from?.id, lang);
@@ -350,6 +401,10 @@ class TelegramMonitor {
 
   getChatDiscovery() {
     return this.chatDiscovery;
+  }
+
+  getTelegramDiscoveryService() {
+    return this.telegramDiscoveryService;
   }
 
   async shutdown() {
