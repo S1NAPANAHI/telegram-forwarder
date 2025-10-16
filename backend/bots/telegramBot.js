@@ -324,7 +324,7 @@ class TelegramMonitor {
       if (keywords.length > 0 && text) {
         const t = text.normalize('NFC');
         shouldForward = keywords.some(k => {
-          const kw = (k.keyword or '').toString(); if (!kw) return false;
+          const kw = (k.keyword || '').toString(); if (!kw) return false;
           if (k.match_mode === 'regex') { try { return new RegExp(kw, k.case_sensitive ? '' : 'i').test(t); } catch { return false; } }
           const T = k.case_sensitive ? t : t.toLowerCase();
           const K = k.case_sensitive ? kw : kw.toLowerCase();
@@ -345,7 +345,22 @@ class TelegramMonitor {
           await LoggingService.logForwarding({ user_id: userId, channel_id: channelId, destination_id: dest.id, original_message_text: text.slice(0,500), matched_text: text.slice(0,200), status: 'error' });
         }
       }
-    } catch (e) { console.error('processMessage error:', e?.message or e); }
+    } catch (e) { console.error('processMessage error:', e?.message || e); }
+  }
+
+  getChatDiscovery() {
+    return this.chatDiscovery;
+  }
+
+  async shutdown() {
+    try {
+      if (this.bot) {
+        await this.bot.deleteWebHook();
+        console.log('Telegram bot webhook deleted');
+      }
+    } catch (e) {
+      console.error('Error during telegram bot shutdown:', e?.message || e);
+    }
   }
 }
 
