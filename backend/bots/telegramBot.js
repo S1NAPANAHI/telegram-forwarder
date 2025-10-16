@@ -10,6 +10,56 @@ const { forwardMessage, checkDuplicate } = require('../services/forwardingServic
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://frontend-service-51uy.onrender.com';
 const WEBAPP_URL = `${FRONTEND_URL}/webapp`;
 
+// Simple i18n
+const i18n = {
+  en: {
+    welcome: (name) => `🎉 Welcome to Telegram Forwarder Bot, ${name}!\n\nUse /help for all commands or tap the Web App to configure.`,
+    help: '🆘 Help\n\n/start – Start\n/help – This help\n/status – Bot and your config status\n/webapp – Open management panel\n/menu – Quick actions\n/discover – Scan chats and admin status\n/language – Change language',
+    status: (count) => `📊 Bot Status\n\nMonitored Channels: ${count}\nUpdated: ${new Date().toLocaleString()}`,
+    webapp: '🌐 Open the management Web App:',
+    quick: '🎛️ Quick Actions',
+    discover_start: '🔍 Starting discovery scan... This may take a moment.',
+    discover_summary: (g, c, adminG, adminC) => `🔎 Discovery Summary\n\nGroups: ${g} (admin in ${adminG})\nChannels: ${c} (admin in ${adminC})`,
+    language_prompt: (cur) => `🌐 Language\n\nCurrent: ${cur.toUpperCase()}\nChoose a language:`,
+    lang_changed: (lang) => `✅ Language changed to ${lang.toUpperCase()}`,
+    btn_webapp: '🌐 Open Web App',
+    btn_help: '❓ Help',
+    btn_status: '📊 Status',
+    btn_discover: '🔍 Discover',
+    btn_en: 'English',
+    btn_fa: 'فارسی'
+  },
+  fa: {
+    welcome: (name) => `🎉 به ربات فوروارد تلگرام خوش آمدی، ${name}!\n\nبرای دیدن دستورات /help را بزن یا وب‌اپ را باز کن.`,
+    help: '🆘 راهنما\n\n/start – شروع\n/help – این راهنما\n/status – وضعیت ربات و تنظیمات شما\n/webapp – باز کردن پنل مدیریت\n/menu – اقدامات سریع\n/discover – اسکن چت‌ها و سطح دسترسی ادمین\n/language – تغییر زبان',
+    status: (count) => `📊 وضعیت ربات\n\nکانال‌های تحت نظارت: ${count}\nبه‌روزرسانی: ${new Date().toLocaleString('fa-IR')}`,
+    webapp: '🌐 پنل مدیریت را باز کن:',
+    quick: '🎛️ اقدامات سریع',
+    discover_start: '🔍 شروع اسکن... چند لحظه صبر کنید.',
+    discover_summary: (g, c, adminG, adminC) => `🔎 خلاصه کشف\n\nگروه‌ها: ${g} (ادمین در ${adminG})\nکانال‌ها: ${c} (ادمین در ${adminC})`,
+    language_prompt: (cur) => `🌐 زبان\n\nفعلی: ${cur.toUpperCase()}\nیکی را انتخاب کنید:`,
+    lang_changed: (lang) => `✅ زبان به ${lang.toUpperCase()} تغییر کرد`,
+    btn_webapp: '🌐 وب‌اپ',
+    btn_help: '❓ راهنما',
+    btn_status: '📊 وضعیت',
+    btn_discover: '🔍 کشف',
+    btn_en: 'English',
+    btn_fa: 'فارسی'
+  }
+};
+
+async function getUserLang(userId) {
+  try {
+    const u = await UserService.getByTelegramId?.(userId);
+    const lang = (u?.lang || 'en').toLowerCase();
+    return ['en','fa'].includes(lang) ? lang : 'en';
+  } catch { return 'en'; }
+}
+
+async function setUserLang(userId, lang) {
+  try { await UserService.createOrUpdateUser({ telegram_id: userId, lang }); } catch {}
+}
+
 class TelegramMonitor {
   static instance = null;
 
@@ -61,7 +111,9 @@ class TelegramMonitor {
           { command: 'help', description: 'Show help and available commands' },
           { command: 'status', description: 'Bot status and health' },
           { command: 'webapp', description: 'Open management panel' },
-          { command: 'menu', description: 'Show quick action buttons' }
+          { command: 'menu', description: 'Show quick action buttons' },
+          { command: 'discover', description: 'Scan chats and report admin status' },
+          { command: 'language', description: 'Change language' }
         ]);
       } catch {}
       try {
@@ -83,65 +135,104 @@ class TelegramMonitor {
   setupCommandHandlers() {
     // /start
     this.bot.onText(/^\/start\b/i, async (msg) => {
+      const lang = await getUserLang(msg.from?.id);
+      const t = i18n[lang];
       const userName = msg.from?.first_name || 'User';
       const keyboard = {
         inline_keyboard: [
-          [{ text: '🌐 Open Web App', web_app: { url: WEBAPP_URL } }],
-          [{ text: '❓ Help', callback_data: 'help' }, { text: '📊 Status', callback_data: 'status' }]
+          [{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }],
+          [{ text: t.btn_help, callback_data: 'help' }, { text: t.btn_status, callback_data: 'status' }],
+          [{ text: t.btn_discover, callback_data: 'discover' }]
         ]
       };
       try {
-        await this.bot.sendMessage(msg.chat.id,
-          `🎉 Welcome to Telegram Forwarder Bot, ${userName}!\n\nUse /help for all commands or tap the Web App to configure.`,
-          { reply_markup: keyboard }
-        );
+        await this.bot.sendMessage(msg.chat.id, t.welcome(userName), { reply_markup: keyboard });
       } catch (e) { console.error('/start sendMessage error:', e?.message || e); }
     });
 
     // /help
     this.bot.onText(/^\/help\b/i, async (msg) => {
-      try {
-        await this.bot.sendMessage(
-          msg.chat.id,
-          '🆘 Help\n\n/start – Start\n/help – This help\n/status – Bot and your config status\n/webapp – Open management panel\n/menu – Quick actions'
-        );
-      } catch (e) { console.error('/help error:', e?.message || e); }
+      const lang = await getUserLang(msg.from?.id);
+      const t = i18n[lang];
+      try { await this.bot.sendMessage(msg.chat.id, t.help); } catch (e) { console.error('/help error:', e?.message || e); }
     });
 
     // /status
     this.bot.onText(/^\/status\b/i, async (msg) => {
+      const lang = await getUserLang(msg.from?.id);
+      const t = i18n[lang];
       try {
         const monitoredCount = this.monitoredChannels.size;
-        await this.bot.sendMessage(
-          msg.chat.id,
-          `📊 Bot Status\n\nMonitored Channels: ${monitoredCount}\nUpdated: ${new Date().toLocaleString()}`
-        );
+        await this.bot.sendMessage(msg.chat.id, t.status(monitoredCount));
       } catch (e) { console.error('/status error:', e?.message || e); }
     });
 
     // /webapp
     this.bot.onText(/^\/webapp\b/i, async (msg) => {
+      const lang = await getUserLang(msg.from?.id);
+      const t = i18n[lang];
       try {
         await this.bot.sendMessage(
           msg.chat.id,
-          '🌐 Open the management Web App:',
-          { reply_markup: { inline_keyboard: [[{ text: 'Open Web App', web_app: { url: WEBAPP_URL } }]] } }
+          t.webapp,
+          { reply_markup: { inline_keyboard: [[{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }]] } }
         );
       } catch (e) { console.error('/webapp error:', e?.message || e); }
     });
 
     // /menu
     this.bot.onText(/^\/menu\b/i, async (msg) => {
+      const lang = await getUserLang(msg.from?.id);
+      const t = i18n[lang];
       try {
         await this.bot.sendMessage(
           msg.chat.id,
-          '🎛️ Quick Actions',
+          t.quick,
           { reply_markup: { inline_keyboard: [
-            [{ text: '🌐 Web App', web_app: { url: WEBAPP_URL } }],
-            [{ text: '📊 Status', callback_data: 'status' }, { text: '❓ Help', callback_data: 'help' }]
+            [{ text: t.btn_webapp, web_app: { url: WEBAPP_URL } }],
+            [{ text: t.btn_status, callback_data: 'status' }, { text: t.btn_help, callback_data: 'help' }],
+            [{ text: t.btn_discover, callback_data: 'discover' }]
           ] } }
         );
       } catch (e) { console.error('/menu error:', e?.message || e); }
+    });
+
+    // /discover
+    this.bot.onText(/^\/discover\b/i, async (msg) => {
+      const lang = await getUserLang(msg.from?.id);
+      const t = i18n[lang];
+      try {
+        await this.bot.sendMessage(msg.chat.id, t.discover_start);
+        // quick summary (from services if available)
+        let groups = 0, channels = 0, adminGroups = 0, adminChannels = 0;
+        try {
+          const stats = await ChatDiscoveryService.getSummary?.(msg.from.id);
+          if (stats) {
+            groups = stats.groups || 0;
+            channels = stats.channels || 0;
+            adminGroups = stats.adminGroups || 0;
+            adminChannels = stats.adminChannels || 0;
+          }
+        } catch {}
+        await this.bot.sendMessage(msg.chat.id, t.discover_summary(groups, channels, adminGroups, adminChannels));
+        // kick off background scan
+        try { await ChatDiscoveryService.scan?.(msg.from.id); } catch {}
+      } catch (e) { console.error('/discover error:', e?.message || e); }
+    });
+
+    // /language
+    this.bot.onText(/^\/language\b/i, async (msg) => {
+      const lang = await getUserLang(msg.from?.id);
+      const t = i18n[lang];
+      try {
+        await this.bot.sendMessage(
+          msg.chat.id,
+          t.language_prompt(lang),
+          { reply_markup: { inline_keyboard: [
+            [{ text: i18n.en.btn_en, callback_data: 'lang_en' }, { text: i18n.fa.btn_fa, callback_data: 'lang_fa' }]
+          ] } }
+        );
+      } catch (e) { console.error('/language error:', e?.message || e); }
     });
 
     // callbacks
@@ -150,10 +241,30 @@ class TelegramMonitor {
       try { await this.bot.answerCallbackQuery(cb.id); } catch {}
       try {
         if (data === 'help') {
-          await this.bot.sendMessage(cb.message.chat.id, 'Use /help for full details, or open the Web App.');
+          const lang = await getUserLang(cb.from?.id); const t = i18n[lang];
+          await this.bot.sendMessage(cb.message.chat.id, t.help);
         } else if (data === 'status') {
+          const lang = await getUserLang(cb.from?.id); const t = i18n[lang];
           const monitoredCount = this.monitoredChannels.size;
-          await this.bot.sendMessage(cb.message.chat.id, `Monitored Channels: ${monitoredCount}`);
+          await this.bot.sendMessage(cb.message.chat.id, t.status(monitoredCount));
+        } else if (data === 'discover') {
+          const lang = await getUserLang(cb.from?.id); const t = i18n[lang];
+          let groups = 0, channels = 0, adminGroups = 0, adminChannels = 0;
+          try {
+            const stats = await ChatDiscoveryService.getSummary?.(cb.from.id);
+            if (stats) {
+              groups = stats.groups || 0;
+              channels = stats.channels || 0;
+              adminGroups = stats.adminGroups || 0;
+              adminChannels = stats.adminChannels || 0;
+            }
+          } catch {}
+          await this.bot.sendMessage(cb.message.chat.id, t.discover_summary(groups, channels, adminGroups, adminChannels));
+        } else if (data === 'lang_en' || data === 'lang_fa') {
+          const lang = data === 'lang_en' ? 'en' : 'fa';
+          await setUserLang(cb.from?.id, lang);
+          const t = i18n[lang];
+          await this.bot.sendMessage(cb.message.chat.id, t.lang_changed(lang));
         }
       } catch (e) { console.error('callback error:', e?.message || e); }
     });
@@ -213,7 +324,7 @@ class TelegramMonitor {
       if (keywords.length > 0 && text) {
         const t = text.normalize('NFC');
         shouldForward = keywords.some(k => {
-          const kw = (k.keyword || '').toString(); if (!kw) return false;
+          const kw = (k.keyword or '').toString(); if (!kw) return false;
           if (k.match_mode === 'regex') { try { return new RegExp(kw, k.case_sensitive ? '' : 'i').test(t); } catch { return false; } }
           const T = k.case_sensitive ? t : t.toLowerCase();
           const K = k.case_sensitive ? kw : kw.toLowerCase();
@@ -234,7 +345,7 @@ class TelegramMonitor {
           await LoggingService.logForwarding({ user_id: userId, channel_id: channelId, destination_id: dest.id, original_message_text: text.slice(0,500), matched_text: text.slice(0,200), status: 'error' });
         }
       }
-    } catch (e) { console.error('processMessage error:', e?.message || e); }
+    } catch (e) { console.error('processMessage error:', e?.message or e); }
   }
 }
 
