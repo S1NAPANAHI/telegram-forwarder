@@ -1,7 +1,6 @@
 // TelegramDiscoveryService.js - Enhanced Discovery System (Phase 1.1)
 // Comprehensive chat discovery with admin status detection
 
-const { supabase } = require('../database/supabase');
 const TelegramBot = require('node-telegram-bot-api');
 const { TelegramApi } = require('telegram');
 const logger = require('../utils/logger');
@@ -166,6 +165,8 @@ class TelegramDiscoveryService {
      */
     async saveDiscoveredChats(userId, chats) {
         try {
+            const supabase = require('../database/supabase');
+            
             for (const chat of chats) {
                 const { error } = await supabase
                     .from('discovered_chats')
@@ -201,6 +202,8 @@ class TelegramDiscoveryService {
      */
     async getDiscoveredChats(userId, filters = {}) {
         try {
+            const supabase = require('../database/supabase');
+            
             let query = supabase
                 .from('discovered_chats')
                 .select('*')
@@ -240,6 +243,8 @@ class TelegramDiscoveryService {
      */
     async markChatAsPromoted(userId, chatId) {
         try {
+            const supabase = require('../database/supabase');
+            
             const { error } = await supabase
                 .from('discovered_chats')
                 .update({ is_promoted: true })
