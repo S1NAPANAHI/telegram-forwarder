@@ -20,8 +20,24 @@ class KeywordService {
         return data[0];
     }
 
+    // New: resolve keywords by channel owner and normalize schema
+    async getKeywordsByChannelId(channelId) {
+        try {
+            const { data: channel } = await supabase
+                .from('channels')
+                .select('user_id')
+                .eq('id', channelId)
+                .maybeSingle();
+            if (!channel) return [];
+            return await this.getUserKeywords(channel.user_id, true);
+        } catch { return []; }
+    }
+
     async getUserKeywords(userId, activeOnly = true) {
-        let query = supabase.from('keywords').select('*').eq('user_id', userId);
+        let query = supabase
+            .from('keywords')
+            .select('id, user_id, keyword, is_active, case_sensitive, exact_match, match_mode, priority')
+            .eq('user_id', userId);
 
         if (activeOnly) {
             query = query.eq('is_active', true);
@@ -33,7 +49,13 @@ class KeywordService {
             throw new Error(error.message);
         }
 
-        return data;
+        // Normalize types to be robust
+        return (data || []).map(k => ({
+            ...k,
+            case_sensitive: k.case_sensitive === true || k.case_sensitive === 'true',
+            exact_match: k.exact_match === true || k.exact_match === 'true',
+            match_mode: (k.match_mode || 'contains').toLowerCase()
+        }));
     }
 
     async toggleKeyword(userId, keywordId, isActive) {
@@ -75,19 +97,25 @@ class KeywordService {
     }
 
     doesTextMatchKeyword(text, keyword) {
-        let searchText = text;
-        let searchKeyword = keyword.keyword;
+        const mode = (keyword.match_mode || 'contains').toLowerCase();
+        let searchText = text || '';
+        let searchKeyword = keyword.keyword || '';
 
         if (!keyword.case_sensitive) {
             searchText = searchText.toLowerCase();
             searchKeyword = searchKeyword.toLowerCase();
         }
 
-        if (keyword.exact_match) {
-            return searchText === searchKeyword;
-        } else {
-            return searchText.includes(searchKeyword);
+        if (mode === 'regex') {
+            try { return new RegExp(searchKeyword, keyword.case_sensitive ? '' : 'i').test(text || ''); } catch { return false; }
         }
+
+        if (mode === 'exact' || keyword.exact_match) {
+            return searchText === searchKeyword;
+        }
+
+        // default contains
+        return searchText.includes(searchKeyword);
     }
 
     async deleteKeyword(userId, keywordId) {
