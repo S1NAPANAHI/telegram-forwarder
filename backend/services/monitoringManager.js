@@ -1,9 +1,10 @@
-// Enhanced Monitoring Manager - Phase 2.1: Universal Mode Support
-// Unified monitoring with automatic admin detection and method switching
+// Enhanced Monitoring Manager - Phase 2.1: Universal Mode Support + Auto-Promotion
+// Unified monitoring with automatic admin detection, method switching, and auto-promotion
 
 const winston = require('winston');
 const TelegramDiscoveryService = require('./TelegramDiscoveryService');
 const PullMonitoringService = require('./PullMonitoringService');
+const AutoPromotionService = require('./AutoPromotionService');
 
 // Configure logger for monitoring manager
 const logger = winston.createLogger({
@@ -28,6 +29,7 @@ class MonitoringManager {
     this.newsScraper = null;
     this.pullMonitoringService = null;
     this.telegramDiscoveryService = null;
+    this.autoPromotionService = null;
     this.activeMonitors = new Map(); // channelId -> { monitor, method, config }
     this.clientMonitorActive = false;
     this.initialized = false;
@@ -44,6 +46,11 @@ class MonitoringManager {
       // Initialize Pull Monitoring Service
       this.pullMonitoringService = new PullMonitoringService();
       logger.info('✅ Pull Monitoring Service initialized');
+
+      // Initialize Auto-Promotion Service
+      this.autoPromotionService = AutoPromotionService;
+      this.autoPromotionService.start(); // Start background worker
+      logger.info('✅ Auto-Promotion Service initialized');
 
       // Initialize Telegram Monitor
       try {
@@ -532,7 +539,8 @@ class MonitoringManager {
         eitaaMonitor: this.eitaaMonitor ? 'active' : 'inactive',
         newsScraper: this.newsScraper ? 'active' : 'inactive',
         pullMonitoring: this.pullMonitoringService ? 'active' : 'inactive',
-        discovery: this.telegramDiscoveryService ? 'active' : 'inactive'
+        discovery: this.telegramDiscoveryService ? 'active' : 'inactive',
+        autoPromotion: this.autoPromotionService ? 'active' : 'inactive'
       },
       monitoring: {
         totalActiveChannels: activeChannels.length,
@@ -549,6 +557,12 @@ class MonitoringManager {
     logger.info('Shutting down Enhanced Monitoring Manager...');
     
     try {
+      // Stop auto-promotion service
+      if (this.autoPromotionService) {
+        this.autoPromotionService.stop();
+        logger.info('✅ Auto-promotion service stopped');
+      }
+
       // Stop all active monitors
       const stopPromises = [];
       for (const [channelId] of this.activeMonitors.entries()) {
