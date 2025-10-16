@@ -2,7 +2,6 @@
 // Unified monitoring with automatic admin detection and method switching
 
 const winston = require('winston');
-const { supabase } = require('../database/supabase');
 const TelegramDiscoveryService = require('./TelegramDiscoveryService');
 const PullMonitoringService = require('./PullMonitoringService');
 
@@ -125,6 +124,9 @@ class MonitoringManager {
    */
   async loadAndStartActiveChannels() {
     try {
+      // Import supabase here to avoid circular dependencies
+      const supabase = require('../database/supabase');
+      
       const { data: activeChannels, error } = await supabase
         .from('channels')
         .select('*')
@@ -165,6 +167,8 @@ class MonitoringManager {
    */
   async startMonitoring(channelId) {
     try {
+      const supabase = require('../database/supabase');
+      
       // Get channel configuration
       const { data: channel, error } = await supabase
         .from('channels')
@@ -203,6 +207,8 @@ class MonitoringManager {
    */
   async determineMonitoringMethod(channel) {
     try {
+      const supabase = require('../database/supabase');
+      
       switch (channel.platform) {
         case 'telegram':
           // Check admin status if not already known
@@ -253,6 +259,8 @@ class MonitoringManager {
     let monitorConfig = { method, startTime: Date.now() };
     
     try {
+      const supabase = require('../database/supabase');
+      
       switch (method) {
         case 'bot_api':
           if (!this.telegramMonitor) {
@@ -318,6 +326,7 @@ class MonitoringManager {
         return;
       }
 
+      const supabase = require('../database/supabase');
       const chatId = this.extractChatId(channel.channel_url);
       if (!chatId) {
         logger.warn(`Cannot extract chat ID from URL: ${channel.channel_url}`);
@@ -356,6 +365,8 @@ class MonitoringManager {
    */
   async handleAdminStatusChange(chatId, isAdmin) {
     try {
+      const supabase = require('../database/supabase');
+      
       // Find channel by chat ID
       const { data: channel } = await supabase
         .from('channels')
