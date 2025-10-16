@@ -1,5 +1,15 @@
 const supabase = require('../database/supabase');
 
+function normalizeTelegramTarget(chatId) {
+  if (!chatId) return null;
+  const v = chatId.toString().trim();
+  if (/^-?\d+$/.test(v)) return v; // numeric id
+  if (v.startsWith('@')) return v;
+  // plain username -> @username
+  if (/^[A-Za-z0-9_]{5,}$/i.test(v)) return '@' + v;
+  return v;
+}
+
 class DestinationService {
     async addDestination(userId, destinationData) {
         const { data, error } = await supabase
@@ -15,7 +25,10 @@ class DestinationService {
     }
 
     async getUserDestinations(userId, activeOnly = true) {
-        let query = supabase.from('destinations').select('*').eq('user_id', userId);
+        let query = supabase
+            .from('destinations')
+            .select('id, user_id, type, platform, chat_id, name, is_active')
+            .eq('user_id', userId);
 
         if (activeOnly) {
             query = query.eq('is_active', true);
@@ -27,7 +40,10 @@ class DestinationService {
             throw new Error(error.message);
         }
 
-        return data;
+        return (data || []).map(d => ({
+            ...d,
+            chat_id: normalizeTelegramTarget(d.chat_id)
+        }));
     }
 
     async deleteDestination(userId, destinationId) {
@@ -46,4 +62,4 @@ class DestinationService {
     }
 }
 
-module.exports = new DestinationService();
+module.exports = { default: new DestinationService(), DestinationService, normalizeTelegramTarget };
