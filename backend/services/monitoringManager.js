@@ -170,6 +170,7 @@ class MonitoringManager {
 
   /**
    * Universal monitoring starter - detects admin status and chooses method
+   * FIXED: Force bot_api for Telegram when admin_status is true
    * @param {string} channelId - Channel ID from database
    */
   async startMonitoring(channelId) {
@@ -209,6 +210,7 @@ class MonitoringManager {
 
   /**
    * Determine the best monitoring method for a channel
+   * FIXED: Always prefer bot_api for Telegram channels when bot is admin
    * @param {Object} channel - Channel configuration
    * @returns {string} - Monitoring method ('bot_api', 'client_api', 'pull')
    */
@@ -230,12 +232,15 @@ class MonitoringManager {
             channel.admin_status = updatedChannel?.admin_status;
           }
 
-          // Prefer bot API if admin, client API if available, fall back to pull
-          if (channel.admin_status && this.telegramMonitor) {
+          // FIXED: Force bot_api for Telegram when admin, never fall back to pull for admin channels
+          if (channel.admin_status === true && this.telegramMonitor) {
+            logger.info(`Using bot_api for admin Telegram channel: ${channel.channel_name}`);
             return 'bot_api';
           } else if (this.clientMonitorActive) {
+            logger.info(`Using client_api for non-admin Telegram channel: ${channel.channel_name}`);
             return 'client_api';
           } else {
+            logger.warn(`Using pull monitoring for Telegram channel (no admin access): ${channel.channel_name}`);
             return 'pull';
           }
         
@@ -275,6 +280,7 @@ class MonitoringManager {
           }
           await this.telegramMonitor.startMonitoringChannel(channel);
           monitorInstance = this.telegramMonitor;
+          logger.info(`✅ Bot API monitoring started for: ${channel.channel_name}`);
           break;
         
         case 'client_api':
@@ -283,6 +289,7 @@ class MonitoringManager {
           }
           // Client monitoring is handled globally, just mark as active
           monitorInstance = { type: 'client_monitor' };
+          logger.info(`✅ Client API monitoring started for: ${channel.channel_name}`);
           break;
         
         case 'eitaa_api':
@@ -296,6 +303,7 @@ class MonitoringManager {
         case 'pull':
           await this.pullMonitoringService.startPolling(channel);
           monitorInstance = this.pullMonitoringService;
+          logger.info(`✅ Pull monitoring started for: ${channel.channel_name}`);
           break;
         
         default:
@@ -334,9 +342,9 @@ class MonitoringManager {
       }
 
       const supabase = require('../database/supabase');
-      const chatId = this.extractChatId(channel.channel_url);
+      const chatId = this.extractChatId(channel.channel_url) || channel.platform_specific_id;
       if (!chatId) {
-        logger.warn(`Cannot extract chat ID from URL: ${channel.channel_url}`);
+        logger.warn(`Cannot extract chat ID from channel: ${channel.channel_name}`);
         return;
       }
 
@@ -348,7 +356,10 @@ class MonitoringManager {
         // Update database
         await supabase
           .from('channels')
-          .update({ admin_status: isAdmin })
+          .update({ 
+            admin_status: isAdmin,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', channel.id);
         
         logger.info(`Updated admin status for ${channel.channel_name}: ${isAdmin}`);
@@ -357,7 +368,10 @@ class MonitoringManager {
         // Set as non-admin if we can't check
         await supabase
           .from('channels')
-          .update({ admin_status: false })
+          .update({ 
+            admin_status: false,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', channel.id);
       }
     } catch (error) {
@@ -374,12 +388,12 @@ class MonitoringManager {
     try {
       const supabase = require('../database/supabase');
       
-      // Find channel by chat ID
+      // Find channel by chat ID or platform_specific_id
       const { data: channel } = await supabase
         .from('channels')
         .select('*')
-        .eq('channel_url', chatId)
         .eq('platform', 'telegram')
+        .or(`channel_url.eq.${chatId},platform_specific_id.eq.${chatId}`)
         .single();
       
       if (!channel) {
@@ -390,7 +404,10 @@ class MonitoringManager {
       // Update admin status in database
       await supabase
         .from('channels')
-        .update({ admin_status: isAdmin })
+        .update({ 
+          admin_status: isAdmin,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', channel.id);
       
       // Switch monitoring method if channel is active
@@ -484,11 +501,17 @@ class MonitoringManager {
 
   /**
    * Extract chat ID from various Telegram URL formats
+   * ENHANCED: Support both @username and numeric IDs
    * @param {string} url - Channel URL
    * @returns {string} - Chat ID
    */
   extractChatId(url) {
     if (!url) return null;
+    
+    // Already a numeric ID
+    if (/^-?\d+$/.test(url)) {
+      return url;
+    }
     
     if (url.startsWith('@')) {
       return url;
