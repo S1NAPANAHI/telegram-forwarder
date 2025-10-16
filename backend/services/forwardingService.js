@@ -14,35 +14,36 @@ async function forwardMessage(message, destination, keywordObj) {
     } else if (message.title && message.link) {
       messageContent = `*${message.title}*\n\n${message.content || ''}\n\nRead more: ${message.link}`;
     } else {
-      console.warn('Unknown message format for forwarding:', message);
+      console.warn('Unknown message format for forwarding:', { chat: message.chat?.id, message_id: message.message_id });
       return;
     }
 
-    const fullMessage = `*Keyword Match: ${keywordObj.keyword}*\n\n${messageContent}`;
+    const fullMessage = keywordObj?.keyword
+      ? `*Keyword Match: ${keywordObj.keyword}*\n\n${messageContent}`
+      : messageContent;
 
     if (destination.platform === 'telegram') {
+      console.log('Forwarding to Telegram:', { to: destination.chat_id, from: message.chat?.id, msg: message.message_id });
       forwardedMessageId = await telegramBot.sendMessage(destination.chat_id, fullMessage, { parse_mode: 'Markdown' });
     } else if (destination.platform === 'eitaa') {
-      console.log(`Forwarding to Eitaa destination ${destination.name} (chat ID: ${destination.chat_id}):\n${fullMessage}`);
+      console.log(`Forwarding to Eitaa destination ${destination.name} (chat ID: ${destination.chat_id})`);
       forwardedMessageId = 'eitaa_mock_message_id';
     } else {
       console.warn(`Unsupported platform for forwarding: ${destination.platform}`);
       return;
     }
 
-    // Update the message log with forwarded destination
-    const { error } = await supabase
-      .from('message_logs')
-      .update({ status: 'success' })
-      .eq('id', message.logId);
-
-    if (error) {
-      throw new Error(error.message);
+    if (message.logId) {
+      const { error } = await supabase
+        .from('message_logs')
+        .update({ status: 'success' })
+        .eq('id', message.logId);
+      if (error) console.warn('Failed to update message log:', error.message);
     }
 
     console.log(`Message forwarded successfully to ${destination.name} (${destination.platform})`);
   } catch (error) {
-    console.error(`Error forwarding message to ${destination.name} (${destination.platform}):`, error);
+    console.error(`Error forwarding message to ${destination.name} (${destination.platform}):`, error?.message || error);
     if (message.logId) {
       await supabase
         .from('message_logs')
