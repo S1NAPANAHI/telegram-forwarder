@@ -11,12 +11,18 @@ import {
   PencilIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ArrowPathIcon,
+  LinkIcon,
+  MagnifyingGlassIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 
 interface Destination {
   id: string;
   name: string;
+  type: string;
+  platform: string;
   chat_id: string;
   description?: string;
   is_active: boolean;
@@ -26,6 +32,8 @@ interface Destination {
 
 interface DestinationFormData {
   name: string;
+  type: string;
+  platform: string;
   chat_id: string;
   description?: string;
   is_active: boolean;
@@ -35,10 +43,13 @@ function Destinations() {
   const { t } = useTranslation('common');
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
   const [formData, setFormData] = useState<DestinationFormData>({
     name: '',
+    type: 'private_chat',
+    platform: 'telegram',
     chat_id: '',
     description: '',
     is_active: true
@@ -47,10 +58,13 @@ function Destinations() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [resolving, setResolving] = useState<string | null>(null);
 
-  const fetchDestinations = async () => {
+  const fetchDestinations = async (showRefreshing = false) => {
     try {
-      setLoading(true);
+      if (showRefreshing) setRefreshing(true); else setLoading(true);
+      setError(null);
       const response = await api.get('/api/destinations');
       setDestinations(response.data || []);
     } catch (err: any) {
@@ -58,6 +72,7 @@ function Destinations() {
       setError(err.response?.data?.error || 'Failed to load destinations');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -68,6 +83,8 @@ function Destinations() {
   const resetForm = () => {
     setFormData({
       name: '',
+      type: 'private_chat',
+      platform: 'telegram',
       chat_id: '',
       description: '',
       is_active: true
@@ -83,6 +100,8 @@ function Destinations() {
       setEditingDestination(destination);
       setFormData({
         name: destination.name,
+        type: destination.type || 'private_chat',
+        platform: destination.platform || 'telegram',
         chat_id: destination.chat_id,
         description: destination.description || '',
         is_active: destination.is_active
@@ -144,7 +163,6 @@ function Destinations() {
     try {
       setError(null);
       await api.put(`/api/destinations/${destination.id}`, {
-        ...destination,
         is_active: !destination.is_active
       });
       setSuccess(`Destination ${!destination.is_active ? 'activated' : 'deactivated'} successfully!`);
@@ -154,6 +172,42 @@ function Destinations() {
       setError(err.response?.data?.error || 'Failed to update destination status');
     }
   };
+
+  // ENHANCED: Manual @username resolution
+  const resolveUsername = async (destination: Destination) => {
+    if (!destination.chat_id.startsWith('@')) {
+      setError('Only @username destinations can be resolved');
+      return;
+    }
+
+    try {
+      setResolving(destination.id);
+      setError(null);
+      const response = await api.post(`/api/destinations/${destination.id}/resolve`);
+      
+      if (response.data.updated) {
+        setSuccess(`✅ Resolved ${response.data.original} → ${response.data.resolved}`);
+        await fetchDestinations();
+      } else {
+        setSuccess('Chat ID is already numeric - no resolution needed');
+      }
+    } catch (err: any) {
+      console.error('Error resolving username:', err);
+      setError(err.response?.data?.error || 'Failed to resolve username');
+    } finally {
+      setResolving(null);
+    }
+  };
+
+  // Filter destinations based on search query
+  const filteredDestinations = destinations.filter(dest => {
+    const query = searchQuery.toLowerCase();
+    return (
+      dest.name.toLowerCase().includes(query) ||
+      dest.chat_id.toLowerCase().includes(query) ||
+      (dest.description || '').toLowerCase().includes(query)
+    );
+  });
 
   // Auto-clear success/error messages
   useEffect(() => {
@@ -171,22 +225,32 @@ function Destinations() {
       <Layout>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {t('destinationManager')}
+                Destination Manager
               </h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {t('manageDestinationChannels')}
+                Manage destination channels and users where messages will be forwarded.
               </p>
             </div>
-            <button
-              onClick={() => openModal()}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-            >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              Add Destination
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchDestinations(true)}
+                disabled={refreshing}
+                className="inline-flex items-center px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50"
+              >
+                <ArrowPathIcon className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`}/>
+                Refresh
+              </button>
+              <button
+                onClick={() => openModal()}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                Add Destination
+              </button>
+            </div>
           </div>
 
           {/* Alerts */}
@@ -204,6 +268,19 @@ function Destinations() {
             </div>
           )}
 
+          {/* Search Bar */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+            <div className="relative">
+              <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"/>
+              <input 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, chat ID, or description..."
+                className="pl-9 pr-3 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </div>
+
           {/* Destinations List */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             {loading ? (
@@ -211,24 +288,35 @@ function Destinations() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="mt-2 text-gray-500 dark:text-gray-400">Loading destinations...</p>
               </div>
-            ) : destinations.length === 0 ? (
+            ) : filteredDestinations.length === 0 ? (
               <div className="p-8 text-center">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <PlusIcon className="w-8 h-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No destinations yet
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  Add your first destination channel to start forwarding messages.
-                </p>
-                <button
-                  onClick={() => openModal()}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <PlusIcon className="w-4 h-4 mr-2" />
-                  Add First Destination
-                </button>
+                {searchQuery ? (
+                  <div>
+                    <MagnifyingGlassIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No matching destinations</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">No destinations match your search criteria.</p>
+                    <button onClick={() => setSearchQuery('')} className="text-blue-600 hover:text-blue-800">Clear search</button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <PlusIcon className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      No destinations yet
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                      Add your first destination channel to start forwarding messages.
+                    </p>
+                    <button
+                      onClick={() => openModal()}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <PlusIcon className="w-4 h-4 mr-2" />
+                      Add First Destination
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -242,6 +330,9 @@ function Destinations() {
                         Chat ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -253,7 +344,7 @@ function Destinations() {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {destinations.map((destination) => (
+                    {filteredDestinations.map((destination) => (
                       <tr key={destination.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
@@ -267,8 +358,29 @@ function Destinations() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
-                          {destination.chat_id}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-900 dark:text-white font-mono">
+                              {destination.chat_id}
+                            </span>
+                            {destination.chat_id.startsWith('@') && (
+                              <button
+                                onClick={() => resolveUsername(destination)}
+                                disabled={resolving === destination.id}
+                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                title="Resolve @username to numeric ID"
+                              >
+                                {resolving === destination.id ? (
+                                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <LinkIcon className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">
+                          {destination.platform} • {destination.type}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
@@ -348,9 +460,42 @@ function Destinations() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Platform
+                      </label>
+                      <select
+                        value={formData.platform}
+                        onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="telegram">Telegram</option>
+                        <option value="eitaa">Eitaa</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Type
+                      </label>
+                      <select
+                        value={formData.type}
+                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="private_chat">Private Chat</option>
+                        <option value="channel">Channel</option>
+                        <option value="group">Group</option>
+                        <option value="supergroup">Supergroup</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Chat ID *
+                      Chat ID * 
+                      <span className="text-xs text-gray-500">(@username or numeric ID)</span>
                     </label>
                     <input
                       type="text"
@@ -360,6 +505,9 @@ function Destinations() {
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white font-mono"
                       placeholder="@channel_username or -123456789"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 Use @username for easy setup - it will be automatically resolved to numeric ID
+                    </p>
                   </div>
 
                   <div>
@@ -384,7 +532,7 @@ function Destinations() {
                       className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                      Active
+                      Active (messages will be forwarded to this destination)
                     </label>
                   </div>
                 </div>
