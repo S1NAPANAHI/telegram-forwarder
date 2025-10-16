@@ -17,61 +17,66 @@ async function ensureChannelForUser(userId, chat, isAdmin) {
   return newCh?.id || null;
 }
 
-async function resolveUserIdFromUpdate(bot, msg) {
-  // 1) sender telegram id
-  try { if (msg && msg.from && msg.from.id) { const u = await UserService.getByTelegramId(msg.from.id); if (u?.id) return u.id; } } catch {}
-  const chatId = msg?.chat?.id?.toString();
-  // 2) channel ownership
-  if (chatId) {
-    try { const { data: ch } = await supabase.from('channels').select('user_id').eq('channel_url', chatId).maybeSingle(); if (ch?.user_id) return ch.user_id; } catch {}
+async function resolveUserIdFromUpdate(bot, evt) {
+  // Try 1: sender telegram id
+  if (evt.fromId) {
+    try { const u = await UserService.getByTelegramId(evt.fromId); if (u?.id) return { userId: u.id, via: 'sender' }; } catch {}
   }
-  // 3) discovered ownership
-  if (chatId) {
-    try { const { data: dc } = await supabase.from('discovered_chats').select('user_id').eq('chat_id', chatId).order('last_discovered', { ascending: false }).maybeSingle(); if (dc?.user_id) return dc.user_id; } catch {}
-  }
-  // 4) single-user instance fallback (safe default for one-user setups)
-  try {
-    const { data: users } = await supabase.from('users').select('id').limit(2);
-    if (Array.isArray(users) && users.length === 1) return users[0].id;
-  } catch {}
-  return null;
+  // Try 2: channel ownership
+  try { const { data: ch } = await supabase.from('channels').select('user_id').eq('channel_url', evt.chatId).maybeSingle(); if (ch?.user_id) return { userId: ch.user_id, via: 'channel_owner' }; } catch {}
+  // Try 3: discovered ownership
+  try { const { data: dc } = await supabase.from('discovered_chats').select('user_id').eq('chat_id', evt.chatId).order('last_discovered', { ascending: false }).maybeSingle(); if (dc?.user_id) return { userId: dc.user_id, via: 'discovered_owner' }; } catch {}
+  // Try 4: single-user fallback
+  try { const { data: users } = await supabase.from('users').select('id').limit(2); if (Array.isArray(users) && users.length === 1) return { userId: users[0].id, via: 'single_user' }; } catch {}
+  return { userId: null, via: 'none' };
+}
+
+function normalizeEvent(raw) {
+  // Only accept 'message' and 'channel_post' shape; bail out for others
+  const msg = raw || {};
+  const chat = msg.chat || {};
+  if (!chat.id || !['group','supergroup','channel'].includes(chat.type)) return null;
+  const fromId = msg.from && msg.from.id ? msg.from.id : null;
+  return { chatId: chat.id.toString(), chatType: chat.type, fromId, title: chat.title || chat.first_name || 'Chat', username: chat.username || null };
 }
 
 module.exports = function attachPassiveAutoPromote(bot, monitoredChannels) {
   const cd = new ChatDiscoveryService(bot);
 
-  async function upsertAndPromote(raw) {
+  async function handler(raw) {
     try {
-      // raw can be message or channel_post
-      const msg = raw || {};
-      const chat = msg.chat || {};
-      if (!chat.id || !['group','supergroup','channel'].includes(chat.type)) return;
+      const evt = normalizeEvent(raw);
+      if (!evt) return; // ignore unsupported update types
 
-      const userId = await resolveUserIdFromUpdate(bot, msg);
+      // Resolve user context
+      const { userId, via } = await resolveUserIdFromUpdate(bot, evt);
 
       // Check admin
       let isAdmin = false;
-      try { const me = await bot.getMe(); const member = await bot.getChatMember(chat.id, me.id); isAdmin = ['administrator','creator'].includes(member.status); } catch {}
+      try { const me = await bot.getMe(); const member = await bot.getChatMember(evt.chatId, me.id); isAdmin = ['administrator','creator'].includes(member.status); } catch {}
 
-      // Save discovered only when userId is known
+      // Save discovered only with userId
       if (userId) {
         try {
-          await supabase.from('discovered_chats').upsert({ user_id: userId, chat_id: chat.id.toString(), chat_type: chat.type, chat_title: chat.title || chat.first_name || 'Chat', chat_username: chat.username || null, is_admin: isAdmin, discovery_method: 'bot_api', last_discovered: new Date().toISOString() }, { onConflict: 'user_id,chat_id' });
+          await supabase.from('discovered_chats').upsert({ user_id: userId, chat_id: evt.chatId, chat_type: evt.chatType, chat_title: evt.title, chat_username: evt.username, is_admin: isAdmin, discovery_method: 'bot_api', last_discovered: new Date().toISOString() }, { onConflict: 'user_id,chat_id' });
         } catch (e) { console.warn('Error saving discovered chat (guarded):', e?.message || e); }
+      } else {
+        console.log('Skip discovered save: no user_id (resolution via:', via, ') for chat', evt.chatId);
       }
 
-      // Auto-promote only when we have userId and admin
+      // Auto-promote if possible
       if (!userId || !isAdmin) return;
-      const channelId = await ensureChannelForUser(userId, chat, isAdmin);
+      const auto = await shouldAutoPromote(userId); if (!auto) return;
+      const channelId = await ensureChannelForUser(userId, { id: evt.chatId, title: evt.title }, isAdmin);
       if (channelId) {
-        monitoredChannels.set(chat.id.toString(), { channelId, userId, name: chat.title || 'Chat' });
-        console.log('Auto-promoted and monitoring:', chat.id, 'for user', userId);
+        monitoredChannels.set(evt.chatId, { channelId, userId, name: evt.title });
+        console.log('Auto-promoted and monitoring:', evt.chatId, 'for user', userId);
       }
     } catch (err) {
       console.error('Passive auto-promote error:', err?.message || err);
     }
   }
 
-  bot.on('message', upsertAndPromote);
-  bot.on('channel_post', upsertAndPromote);
+  bot.on('message', handler);
+  bot.on('channel_post', handler);
 };
