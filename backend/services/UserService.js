@@ -45,6 +45,114 @@ class UserService {
         }
     }
 
+    /**
+     * Get user by Telegram ID - used by telegram bot
+     * @param {string|number} telegramId - Telegram user ID
+     * @returns {Promise<Object|null>} User object or null
+     */
+    async getByTelegramId(telegramId) {
+        try {
+            const { data: user, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('telegram_id', telegramId.toString())
+                .single();
+
+            if (error && error.code !== 'PGRST116') { // PGRST116: single row not found
+                console.error('Error getting user by Telegram ID:', error);
+                throw new Error(error.message);
+            }
+
+            return user || null;
+        } catch (error) {
+            console.error('Error in getByTelegramId:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Create or update user - used by telegram bot
+     * @param {Object} userData - User data object
+     * @returns {Promise<Object>} User object
+     */
+    async createOrUpdateUser(userData) {
+        try {
+            // If telegram_id is provided, try to find existing user
+            if (userData.telegram_id) {
+                let existingUser = await this.getByTelegramId(userData.telegram_id);
+                
+                if (existingUser) {
+                    // Update existing user
+                    const updateData = {
+                        ...userData,
+                        last_active: new Date().toISOString()
+                    };
+                    delete updateData.id; // Don't update ID
+                    
+                    const { data: updatedUser, error: updateError } = await supabase
+                        .from('users')
+                        .update(updateData)
+                        .eq('id', existingUser.id)
+                        .select()
+                        .single();
+                    
+                    if (updateError) {
+                        console.error('Error updating user:', updateError);
+                        throw new Error(updateError.message);
+                    }
+                    
+                    return updatedUser;
+                } else {
+                    // Create new user
+                    const createData = {
+                        ...userData,
+                        telegram_id: userData.telegram_id.toString(),
+                        language: userData.language || userData.lang || 'en',
+                        created_at: new Date().toISOString(),
+                        last_active: new Date().toISOString()
+                    };
+                    
+                    const { data: newUser, error: insertError } = await supabase
+                        .from('users')
+                        .insert([createData])
+                        .select()
+                        .single();
+                    
+                    if (insertError) {
+                        console.error('Error creating user:', insertError);
+                        throw new Error(insertError.message);
+                    }
+                    
+                    return newUser;
+                }
+            } else {
+                // No telegram_id, create new user
+                const createData = {
+                    ...userData,
+                    language: userData.language || userData.lang || 'en',
+                    created_at: new Date().toISOString(),
+                    last_active: new Date().toISOString()
+                };
+                
+                const { data: newUser, error: insertError } = await supabase
+                    .from('users')
+                    .insert([createData])
+                    .select()
+                    .single();
+                
+                if (insertError) {
+                    console.error('Error creating user:', insertError);
+                    throw new Error(insertError.message);
+                }
+                
+                return newUser;
+            }
+        } catch (error) {
+            console.error('Error in createOrUpdateUser:', error);
+            throw error;
+        }
+    }
+
     async getUserSubscription(userId) {
         const { data: user, error } = await supabase
             .from('users')
