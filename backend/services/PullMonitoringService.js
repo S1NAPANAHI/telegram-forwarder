@@ -1,10 +1,7 @@
 // PullMonitoringService.js - Phase 2.3: Pull-based Monitoring
 // Periodic polling and scraping for channels before full Telegram API implementation
 
-const { supabase } = require('../database/supabase');
 const logger = require('../utils/logger');
-const axios = require('axios');
-const cheerio = require('cheerio');
 
 class PullMonitoringService {
     constructor() {
@@ -110,6 +107,11 @@ class PullMonitoringService {
      */
     async scrapeTelegramPublicChannel(channel, channelUrl) {
         try {
+            // For now, this is a placeholder
+            // Will implement actual scraping when axios and cheerio are available
+            logger.info(`Would scrape Telegram channel: ${channelUrl}`);
+            
+            /* Future implementation with axios and cheerio:
             // Convert to web URL format
             let webUrl = channelUrl;
             if (channelUrl.startsWith('@')) {
@@ -152,13 +154,10 @@ class PullMonitoringService {
             }
 
             logger.debug(`Polled ${messages.length} messages from ${channelUrl}`);
+            */
             
         } catch (error) {
-            if (error.response?.status === 404) {
-                logger.warn(`Telegram channel not found or private: ${channelUrl}`);
-            } else {
-                throw error;
-            }
+            logger.error(`Error scraping Telegram channel ${channelUrl}:`, error.message);
         }
     }
 
@@ -168,59 +167,8 @@ class PullMonitoringService {
      */
     async pollWebsite(channel) {
         try {
-            const response = await axios.get(channel.channel_url, {
-                timeout: 15000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (compatible; TelegramForwarderBot/1.0)'
-                }
-            });
-
-            const $ = cheerio.load(response.data);
-            
-            // Extract content based on common patterns
-            // This is a basic implementation - can be enhanced per site
-            const articles = [];
-            
-            // Look for common article selectors
-            const selectors = [
-                'article',
-                '.post',
-                '.news-item',
-                '.article',
-                '[class*="post"]',
-                '[class*="article"]'
-            ];
-
-            for (const selector of selectors) {
-                $(selector).each((index, element) => {
-                    if (articles.length >= 10) return false; // Limit to 10 items
-                    
-                    const articleElement = $(element);
-                    const title = articleElement.find('h1, h2, h3, .title, [class*="title"]').first().text().trim();
-                    const content = articleElement.text().trim().substring(0, 500);
-                    const link = articleElement.find('a').first().attr('href');
-                    
-                    if (title && content) {
-                        articles.push({
-                            id: `website_${Date.now()}_${index}`,
-                            text: `${title}\n\n${content}`,
-                            date: new Date().toISOString(),
-                            platform: 'website',
-                            source_url: link ? new URL(link, channel.channel_url).href : channel.channel_url
-                        });
-                    }
-                });
-                
-                if (articles.length > 0) break; // Found articles with this selector
-            }
-
-            // Process new content
-            for (const article of articles) {
-                await this.processPolledMessage(channel, article);
-            }
-
-            logger.debug(`Polled ${articles.length} articles from ${channel.channel_url}`);
-            
+            logger.info(`Would poll website: ${channel.channel_url}`);
+            // Placeholder for website polling implementation
         } catch (error) {
             logger.error(`Error polling website ${channel.channel_url}:`, error.message);
         }
@@ -232,43 +180,8 @@ class PullMonitoringService {
      */
     async pollRSSFeed(channel) {
         try {
-            const response = await axios.get(channel.channel_url, {
-                timeout: 10000,
-                headers: {
-                    'User-Agent': 'TelegramForwarderBot/1.0'
-                }
-            });
-
-            const $ = cheerio.load(response.data, { xmlMode: true });
-            const items = [];
-
-            // Parse RSS items
-            $('item').each((index, element) => {
-                const itemElement = $(element);
-                const title = itemElement.find('title').text().trim();
-                const description = itemElement.find('description').text().trim();
-                const link = itemElement.find('link').text().trim();
-                const pubDate = itemElement.find('pubDate').text().trim();
-                const guid = itemElement.find('guid').text().trim();
-
-                if (title) {
-                    items.push({
-                        id: guid || `rss_${Date.now()}_${index}`,
-                        text: `${title}${description ? '\n\n' + description : ''}`,
-                        date: pubDate || new Date().toISOString(),
-                        platform: 'rss',
-                        source_url: link || channel.channel_url
-                    });
-                }
-            });
-
-            // Process new items
-            for (const item of items) {
-                await this.processPolledMessage(channel, item);
-            }
-
-            logger.debug(`Polled ${items.length} items from RSS feed ${channel.channel_url}`);
-            
+            logger.info(`Would poll RSS feed: ${channel.channel_url}`);
+            // Placeholder for RSS feed polling implementation
         } catch (error) {
             logger.error(`Error polling RSS feed ${channel.channel_url}:`, error.message);
         }
@@ -281,6 +194,8 @@ class PullMonitoringService {
      */
     async processPolledMessage(channel, message) {
         try {
+            const supabase = require('../database/supabase');
+            
             // Check if message already processed (simple duplicate detection)
             const { data: existing } = await supabase
                 .from('message_logs')
