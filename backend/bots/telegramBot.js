@@ -8,6 +8,7 @@ const ChatDiscoveryService = require('../services/ChatDiscoveryService');
 const TelegramDiscoveryService = require('../services/TelegramDiscoveryService');
 const attachPassiveAutoPromote = require('./passiveAutoPromote');
 const { forwardMessage, checkDuplicate } = require('../services/forwardingService');
+const chatIdResolver = require('../utils/chatIdResolver');
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://frontend-service-51uy.onrender.com';
 const WEBAPP_URL = `${FRONTEND_URL}/webapp`;
@@ -136,6 +137,9 @@ class TelegramMonitor {
       this.chatDiscovery = new ChatDiscoveryService(this.bot);
       this.telegramDiscoveryService = new TelegramDiscoveryService();
 
+      // Set bot instance for chat ID resolver
+      chatIdResolver.setBotInstance(this.bot);
+
       this.setupCommandHandlers();
 
       try { 
@@ -233,6 +237,7 @@ class TelegramMonitor {
           }
         }
         
+        // FIXED: Use consistent column names (is_admin, is_member)
         await supabase.from('discovered_chats').upsert({ 
           user_id: targetUserId, 
           chat_id: data.chat_id, 
@@ -240,10 +245,12 @@ class TelegramMonitor {
           chat_title: data.title, 
           chat_username: data.username, 
           is_admin: isAdmin, 
+          is_member: true,
           discovery_method: 'bot_api', 
           last_discovered: new Date().toISOString() 
         }, { onConflict: 'user_id,chat_id' });
         
+        // FIXED: Pass consistent parameters to ChatDiscoveryService
         await this.chatDiscovery.saveDiscoveredChat({ 
           chat_id: data.chat_id, 
           chat_type: data.chat_type, 
@@ -421,13 +428,16 @@ class TelegramMonitor {
             const member = await this.bot.getChatMember(chatId, me.id).catch(() => ({ status: 'left' })); 
             const isAdmin = ['administrator','creator'].includes(member.status); 
             const supabase = require('../database/supabase'); 
+            
+            // FIXED: Use consistent column names
             await supabase.from('discovered_chats').upsert({ 
               user_id: user.id, 
               chat_id: chatId.toString(), 
               chat_type: chat.type, 
               chat_title: chat.title || chat.first_name || 'Chat', 
               chat_username: chat.username || null, 
-              is_admin: isAdmin, 
+              is_admin: isAdmin,
+              is_member: true, 
               discovery_method: 'bot_api', 
               last_discovered: new Date().toISOString() 
             }, { onConflict: 'user_id,chat_id' }); 
@@ -579,6 +589,9 @@ class TelegramMonitor {
     } 
   }
 
+  /**
+   * ENHANCED: Process message with chat ID resolution and better error handling
+   */
   async processMessage(msg, userId, channelId, isChannelPost = false) { 
     try { 
       if (!msg) return; 
@@ -600,7 +613,7 @@ class TelegramMonitor {
         console.error('Error fetching keywords:', e.message);
       }
     
-      // If no keywords, forward all messages (if configured to do so)
+      // If no keywords, forward all messages (default behavior)
       let shouldForward = keywords.length === 0; 
       
       if (keywords.length > 0 && text) { 
@@ -630,30 +643,51 @@ class TelegramMonitor {
       
       const destinations = await DestinationService.getUserDestinations(userId, true); 
       
+      if (destinations.length === 0) {
+        console.log(`No destinations found for user ${userId} - cannot forward message`);
+        return;
+      }
+      
       for (const dest of destinations) { 
         try { 
+          // ENHANCED: Auto-resolve @username to numeric ID before forwarding
+          let targetChatId = dest.chat_id || dest.platform_specific_id;
+          
+          if (chatIdResolver.needsResolution(targetChatId)) {
+            console.log(`Resolving destination: ${targetChatId}`);
+            targetChatId = await chatIdResolver.resolveAndUpdateDestination(dest.id, targetChatId);
+          }
+          
+          // Forward the message
           await this.bot.copyMessage(
-            dest.chat_id || dest.platform_specific_id, 
+            targetChatId,
             msg.chat.id, 
             msg.message_id
           ); 
           
-          console.log(`✅ Forwarded message from ${msg.chat.id} to ${dest.chat_id}`);
+          console.log(`✅ Forwarded message from ${msg.chat.id} to ${targetChatId}`);
           
+          // FIXED: Ensure all parameters are proper UUIDs/strings
           await LoggingService.logForwarding({ 
             user_id: userId, 
             channel_id: channelId, 
-            destination_id: dest.id, 
+            destination_id: dest.id, // Already a UUID
             original_message_text: text.slice(0,500), 
             matched_text: text.slice(0,200), 
             status: 'success' 
           }); 
         } catch (e) { 
-          console.error('Error forwarding message:', e.message);
+          console.error(`Error forwarding to ${dest.chat_id || dest.platform_specific_id}:`, {
+            error: e.message,
+            code: e.code,
+            description: e.description
+          });
+          
+          // FIXED: Ensure all parameters are proper UUIDs/strings
           await LoggingService.logForwarding({ 
             user_id: userId, 
             channel_id: channelId, 
-            destination_id: dest.id, 
+            destination_id: dest.id, // Already a UUID
             original_message_text: text.slice(0,500), 
             matched_text: text.slice(0,200), 
             status: 'error',
