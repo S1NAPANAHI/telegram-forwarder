@@ -1,7 +1,7 @@
 const DestinationService = require('./DestinationService');
 const KeywordService = require('./KeywordService');
 const LoggingService = require('./LoggingService');
-const duplicateDetector = require('./duplicateDetector');
+const DuplicateDetector = require('./duplicateDetector');
 
 /**
  * Enhanced ForwardingEnhancer Service
@@ -17,7 +17,7 @@ class ForwardingEnhancer {
     this.destinationService = new DestinationService(supabase);
     this.keywordService = new KeywordService(supabase);
     this.loggingService = new LoggingService(supabase);
-  }
+    this.duplicateDetector = new DuplicateDetector();
 
   /**
    * Handle incoming message from monitored channel
@@ -36,7 +36,7 @@ class ForwardingEnhancer {
       console.log(`🔍 ForwardingEnhancer processing: "${messageText.substring(0, 50)}..."`);
 
       // Duplicate guard
-      if (duplicateDetector && await duplicateDetector.isDuplicate(message)) {
+      if (this.duplicateDetector && await this.duplicateDetector.isDuplicate(message, userId, channel.id)) {
         console.log('⏭️ Skipping duplicate message');
         return;
       }

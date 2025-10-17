@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const UserService = require('../services/UserService');
 const KeywordService = require('../services/KeywordService');
-const ChannelService = require('../services/ChannelService');
+const ChannelServiceInstance = new (require('../services/ChannelService'))();
 const DestinationService = require('../services/DestinationService');
 const LoggingService = require('../services/LoggingService');
 const ChatDiscoveryService = require('../services/ChatDiscoveryService');
@@ -193,7 +193,7 @@ class TelegramMonitor {
       }
 
       try { 
-        const channels = await ChannelService.getActiveChannelsByPlatform('telegram'); 
+        const channels = await ChannelServiceInstance.getActiveChannelsByPlatform('telegram'); 
         for (const channel of channels) {
           await this.startMonitoringChannel(channel); 
         }
@@ -426,15 +426,22 @@ class TelegramMonitor {
         const lang = await getUserLang(msg.from?.id); 
         await this.bot.sendMessage(msg.chat.id, '🔍 Scanning known chats...'); 
         
-        let user = await UserService.getByTelegramId(msg.from.id); 
-        if (!user) { 
-          user = await UserService.createOrUpdateUser({ 
-            telegram_id: msg.from.id, 
-            username: msg.from.username, 
-            first_name: msg.from.first_name, 
-            last_name: msg.from.last_name, 
-            language: lang 
-          }); 
+        let user;
+        if (msg.from?.id) {
+          user = await UserService.getByTelegramId(msg.from.id); 
+          if (!user) { 
+            user = await UserService.createOrUpdateUser({ 
+              telegram_id: msg.from.id, 
+              username: msg.from.username, 
+              first_name: msg.from.first_name, 
+              last_name: msg.from.last_name, 
+              language: lang 
+            }); 
+          } 
+        } else {
+          console.warn('Cannot discover chats: msg.from.id is undefined.');
+          await this.bot.sendMessage(msg.chat.id, '❌ Discovery failed. Please try again from a private chat with the bot.');
+          return;
         }
         
         const handle = match?.groups?.handle; 
@@ -520,15 +527,22 @@ class TelegramMonitor {
           const lang = await getUserLang(cb.from?.id); 
           try { 
             await this.bot.sendMessage(cb.message.chat.id, '🔍 Scanning...'); 
-            let user = await UserService.getByTelegramId(cb.from.id); 
-            if (!user) { 
-              user = await UserService.createOrUpdateUser({ 
-                telegram_id: cb.from.id, 
-                username: cb.from.username, 
-                first_name: cb.from.first_name, 
-                language: lang 
-              }); 
-            } 
+            let user; 
+            if (cb.from?.id) {
+              user = await UserService.getByTelegramId(cb.from.id); 
+              if (!user) { 
+                user = await UserService.createOrUpdateUser({ 
+                  telegram_id: cb.from.id, 
+                  username: cb.from.username, 
+                  first_name: cb.from.first_name, 
+                  language: lang 
+                }); 
+              } 
+            } else {
+              console.warn('Cannot discover chats: cb.from.id is undefined.');
+              await this.bot.sendMessage(cb.message.chat.id, '❌ Discovery failed. Please try the /discover command from a private chat with the bot.');
+              return;
+            }
             await this.telegramDiscoveryService.probeKnownChannels(user.id); 
             const chats = await this.telegramDiscoveryService.getDiscoveredChats(user.id); 
             const response = this.telegramDiscoveryService.formatDiscoveryResponse(chats); 
