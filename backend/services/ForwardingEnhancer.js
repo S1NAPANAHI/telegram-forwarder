@@ -249,7 +249,7 @@ class ForwardingEnhancer {
   /**
    * Get matched keywords from message text
    */
-  getMatchedKeywords(text, keywords) {
+  getMatchedKeywords = (text, keywords) => {
     const matched = [];
     const lowerText = text.toLowerCase();
 

@@ -160,9 +160,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📦 Node.js version: ${process.version}`);
   
   // Now that server is listening, initialize services in background
-  setImmediate(() => {
-    initializeServicesInBackground();
-  });
+  await initializeServicesInBackground();
 });
 
 // Background service initialization (non-blocking)
