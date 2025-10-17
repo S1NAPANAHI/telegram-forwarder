@@ -43,7 +43,7 @@ class ForwardingEnhancer {
       // }
 
       // Get keywords for the channel
-      const keywords = await this.keywordService.getChannelKeywords(channel.id);
+      const keywords = await this.keywordService.getKeywordsByChannelId(channel.id);
       
       // Check if message matches keywords (empty keywords = forward all)
       const matchedKeywords = this.getMatchedKeywords(messageText, keywords);
