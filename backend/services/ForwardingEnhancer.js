@@ -101,7 +101,7 @@ class ForwardingEnhancer {
    * @param {Object} messageData - Structured message data
    * @param {Array} destinations - User's active destinations
    */
-  async forwardToAllChannels(messageData, destinations) {
+  forwardToAllChannels = async (messageData, destinations) => {
     const promises = [];
 
     // 1. Store in message queue first
