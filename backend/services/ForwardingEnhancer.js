@@ -37,10 +37,10 @@ class ForwardingEnhancer {
       console.log(`🔍 ForwardingEnhancer processing: "${messageText.substring(0, 50)}"...`);
 
       // Duplicate guard
-      if (this.duplicateDetector && await this.duplicateDetector.isDuplicate(userId, messageText, null)) {
-        console.log('⏭️ Skipping duplicate message');
-        return;
-      }
+      // if (this.duplicateDetector && await this.duplicateDetector.isDuplicate(userId, messageText, null)) {
+      //   console.log('⏭️ Skipping duplicate message');
+      //   return;
+      // }
 
       // Get keywords for the channel
       const keywords = await this.keywordService.getChannelKeywords(channel.id);
