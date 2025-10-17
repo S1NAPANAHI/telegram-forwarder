@@ -18,6 +18,7 @@ class ForwardingEnhancer {
     this.keywordService = new KeywordService(supabase);
     this.loggingService = new LoggingService(supabase);
     this.duplicateDetector = new DuplicateDetector();
+  }
 
   /**
    * Handle incoming message from monitored channel
@@ -33,7 +34,7 @@ class ForwardingEnhancer {
         return;
       }
 
-      console.log(`🔍 ForwardingEnhancer processing: "${messageText.substring(0, 50)}..."`);
+      console.log(`🔍 ForwardingEnhancer processing: "${messageText.substring(0, 50)}"...`);
 
       // Duplicate guard
       if (this.duplicateDetector && await this.duplicateDetector.isDuplicate(message, userId, channel.id)) {
@@ -186,16 +187,16 @@ class ForwardingEnhancer {
       const keywords = messageData.matchedKeywords.map(k => k.keyword).join(', ');
       
       const formattedMessage = `📢 **Message Forward**\n\n` +
-        `📝 **From:** ${chatTitle}\n` +
-        `👤 **User:** ${fromUser}\n` +
-        `🎯 **Keywords:** ${keywords || 'All messages'}\n\n` +
+        `📝 **From:** ${chatTitle}\n` + 
+        `👤 **User:** ${fromUser}\n` + 
+        `🎯 **Keywords:** ${keywords || 'All messages'}\n\n` + 
         `✉️ **Message:**\n${messageData.messageText}`;
 
       // Send to user's telegram_id (DM) or destination chat_id
       const targetChatId = user.telegram_id !== 'system_bot' ? user.telegram_id : telegramDest.chat_id;
       
-      await this.telegramBot.sendMessage(targetChatId, formattedMessage, { 
-        parse_mode: 'Markdown' 
+      await this.telegramBot.sendMessage(targetChatId, formattedMessage, {
+        parse_mode: 'Markdown'
       });
       
       console.log(`📱 Telegram DM sent to ${targetChatId}`);
@@ -260,13 +261,13 @@ class ForwardingEnhancer {
 
         switch (keyword.match_type) {
           case 'exact':
-            isMatch = keyword.case_sensitive ? 
-                     text === keyword.keyword : 
+            isMatch = keyword.case_sensitive ?
+                     text === keyword.keyword :
                      lowerText === lowerKeyword;
             break;
           case 'contains':
-            isMatch = keyword.case_sensitive ? 
-                     text.includes(keyword.keyword) : 
+            isMatch = keyword.case_sensitive ?
+                     text.includes(keyword.keyword) :
                      lowerText.includes(lowerKeyword);
             break;
           case 'regex':
@@ -373,4 +374,3 @@ class ForwardingEnhancer {
 }
 
 module.exports = ForwardingEnhancer;
-// Temporary comment to force Git change
