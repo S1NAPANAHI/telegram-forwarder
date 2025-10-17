@@ -153,7 +153,7 @@ app.use((error, req, res, next) => {
 
 // Start server IMMEDIATELY
 console.log(`🚀 Starting server on port ${PORT}...`);
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`✅ Server is running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
