@@ -113,4 +113,4 @@ class ChannelService {
     }
 }
 
-module.exports = new ChannelService();
+module.exports = ChannelService;

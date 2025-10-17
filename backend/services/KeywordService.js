@@ -94,4 +94,4 @@ class KeywordService {
   }
 }
 
-module.exports = { KeywordService };
+module.exports = KeywordService;

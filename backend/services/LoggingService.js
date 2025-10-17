@@ -71,4 +71,4 @@ class LoggingService {
   }
 }
 
-module.exports = { LoggingService };
+module.exports = LoggingService;
