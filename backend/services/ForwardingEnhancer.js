@@ -57,7 +57,7 @@ class ForwardingEnhancer {
       console.log(`🎯 Message matches keywords: ${matchedKeywords.map(k => k.keyword).join(', ')}`);
 
       // Get user's destinations
-      const destinations = await this.destinationService.getActiveDestinations(userId);
+      const destinations = await this.destinationService.getUserDestinations(userId, true);
       if (!destinations || destinations.length === 0) {
         console.log(`⚠️ No active destinations for user ${userId}`);
         return;
@@ -337,7 +337,7 @@ class ForwardingEnhancer {
       }
 
       // Get user's destinations
-      const destinations = await this.destinationService.getActiveDestinations(message.user_id);
+      const destinations = await this.destinationService.getUserDestinations(message.user_id, true);
       
       if (!destinations || destinations.length === 0) {
         throw new Error('No active destinations');
