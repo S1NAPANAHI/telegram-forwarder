@@ -42,4 +42,4 @@ class DestinationService {
   }
 }
 
-module.exports = { DestinationService, normalizeTelegramTarget };
+module.exports = DestinationService;
