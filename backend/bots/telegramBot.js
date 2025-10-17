@@ -201,6 +201,9 @@ class TelegramMonitor {
         console.error('Channel load failed:', e?.message || e); 
       }
 
+      this.bot.on('message', (msg) => this.onMessage(msg));
+      this.bot.on('channel_post', (post) => this.onChannelPost(post));
+
       this.registerPassiveDiscovery();
       attachPassiveAutoPromote(this.bot, this.monitoredChannels);
 
