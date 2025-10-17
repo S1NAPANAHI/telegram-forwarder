@@ -25,7 +25,7 @@ class ForwardingEnhancer {
    * @param {string} userId - User ID who owns the channel
    * @param {Object} channel - Channel configuration object
    */
-  async handleIncomingMessage(message, userId, channel) {
+  handleIncomingMessage = async (message, userId, channel) => {
     try {
       const messageText = message.text || message.caption || '';
       if (!messageText.trim()) {
