@@ -43,10 +43,8 @@ npm install express-rate-limit
 
 ### **Step 1.2: Database Design**
 
-The project uses MongoDB with Mongoose for its database. A detailed breakdown of the database schema, including all collections (models), their fields, and indexes, can be found in the dedicated [Database Schema Documentation](database_schema.md).
+The project uses PostgreSQL with Supabase for its database. A detailed breakdown of the database schema can be found in the dedicated [Database Schema Documentation](./database_schema.md).
 
-The database connection is handled by `backend/database/connection.js`.
-```
 
 ### **Step 1.3: Backend API Development**
 

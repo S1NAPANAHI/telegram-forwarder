@@ -10,26 +10,22 @@
   - [x] Create backend directory
   - [x] Initialize npm project
   - [x] Install express, cors, helmet, morgan, dotenv
-  - [x] Install mongoose, jsonwebtoken, bcryptjs
-  - [x] Install node-cron, telegram-bot-api
+  - [x] Install @supabase/supabase-js, jsonwebtoken
+  - [x] Install node-cron, node-telegram-bot-api
   - [x] Install puppeteer, cheerio
   - [x] Install express-rate-limit
   - [x] Install axios, natural, persian-preprocess, winston (Additional backend dependencies)
   - [x] Install nodemon (Backend development dependency)
 
 ## Step 1.2: Database Design
-- [x] Define User Schema (MongoDB)
-- [x] Define Keywords Schema (MongoDB)
-- [x] Define Channel Schema (MongoDB)
-- [x] Define Destination Schema (MongoDB)
-- [x] Define Log Schema (MongoDB)
+- [x] Define database schema using PostgreSQL with Supabase. See [Database Schema Documentation](./database_schema.md) for details.
 
 ## Step 1.3: Backend API Development
 - [x] Setup Express Server Structure (server.js)
   - [x] Initialize Express app
   - [x] Configure middleware (express.json, cors, helmet, morgan, rate limiting)
   - [x] Define API routes (auth, keywords, channels, destinations, monitoring, logs)
-  - [x] Connect to MongoDB
+  - [x] Connect to Supabase
   - [x] Start server
 - [x] Implement Keywords API Routes (routes/keywords.js)
   - [x] POST /api/keywords (Add keyword with limit check)

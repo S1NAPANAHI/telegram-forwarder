@@ -18,27 +18,17 @@
   - [x] Define `backend` service
     - [x] Build from `Dockerfile.backend` (assuming separate Dockerfile for backend)
     - [x] Map port 5000
-    - [x] Set environment variables (NODE_ENV, MONGODB_URI, REDIS_URL)
-    - [x] Define dependencies (mongodb, redis)
-  - [x] Define `mongodb` service
-    - [x] Use `mongo:5` image
-    - [x] Map port 27017
-    - [x] Define volume for data
-  - [x] Define `redis` service
-    - [x] Use `redis:6-alpine` image
-    - [x] Map port 6379
-    - [x] Define volume for data
+    - [x] Set environment variables (NODE_ENV, SUPABASE_URL, SUPABASE_KEY)
   - [x] Define `nginx` service
     - [x] Use `nginx:alpine` image
     - [x] Map ports 80, 443
     - [x] Mount `nginx.conf`
     - [x] Define dependencies (frontend, backend)
-  - [x] Define Docker volumes (mongodb_data, redis_data)
 
 ## Step 4.2: Environment Configuration
 - [x] Create `.env` file
-  - [x] Define `MONGODB_URI`
-  - [x] Define `REDIS_URL`
+  - [x] Define `SUPABASE_URL`
+  - [x] Define `SUPABASE_KEY`
   - [x] Define `TELEGRAM_BOT_TOKEN`
   - [x] Define `EITAA_PHONE` (if using unofficial API)
   - [x] Define `EITAA_PASSWORD` (if using unofficial API)
