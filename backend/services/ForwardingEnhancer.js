@@ -37,7 +37,7 @@ class ForwardingEnhancer {
       console.log(`🔍 ForwardingEnhancer processing: "${messageText.substring(0, 50)}"...`);
 
       // Duplicate guard
-      if (this.duplicateDetector && await this.duplicateDetector.isDuplicate(message, userId, channel.id)) {
+      if (this.duplicateDetector && await this.duplicateDetector.isDuplicate(userId, messageText, null)) {
         console.log('⏭️ Skipping duplicate message');
         return;
       }

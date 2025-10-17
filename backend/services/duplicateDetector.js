@@ -9,13 +9,17 @@ class DuplicateDetector {
   }
 
   async isDuplicate(userId, newMessage, keywordId) {
-    const { data: recentLogs, error } = await supabase
+    let query = supabase
       .from('message_logs')
       .select('original_message_text')
       .eq('user_id', userId)
-      .eq('keyword_id', keywordId)
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-      .limit(50);
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+    if (keywordId) {
+      query = query.eq('keyword_id', keywordId);
+    }
+
+    const { data: recentLogs, error } = await query;
 
     if (error) {
       throw new Error(error.message);
