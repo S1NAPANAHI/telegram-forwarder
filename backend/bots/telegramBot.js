@@ -333,9 +333,16 @@ class TelegramMonitor {
         }
       } catch (e) { 
         console.error('/start error:', e?.message || e); 
+        if (e instanceof AggregateError) {
+          for (const err of e.errors) {
+            console.error('  - AggregateError detail:', err?.message || err);
+          }
+        }
         try { 
           await this.bot.sendMessage(msg.chat.id, '👋 Bot is online and ready!'); 
-        } catch {} 
+        } catch (sendError) {
+          console.error('Error sending fallback message:', sendError?.message || sendError);
+        } 
       } 
     });
     
