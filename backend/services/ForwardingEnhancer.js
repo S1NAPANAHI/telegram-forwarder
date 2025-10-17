@@ -133,7 +133,7 @@ class ForwardingEnhancer {
   /**
    * Store message in queue for tracking
    */
-  async storeInMessageQueue(messageData) {
+  storeInMessageQueue = async (messageData) => {
     try {
       const { error } = await this.supabase
         .from('message_queue')
@@ -160,7 +160,7 @@ class ForwardingEnhancer {
   /**
    * Send Telegram DM to user
    */
-  async sendTelegramDM(messageData, destinations) {
+  sendTelegramDM = async (messageData, destinations) => {
     try {
       // Find user's telegram_id from user table
       const { data: user, error: userError } = await this.supabase
@@ -208,7 +208,7 @@ class ForwardingEnhancer {
   /**
    * Add message to web feed for dashboard
    */
-  async addToWebFeed(messageData) {
+  addToWebFeed = async (messageData) => {
     try {
       const { error } = await this.supabase
         .from('message_feed')
@@ -236,7 +236,7 @@ class ForwardingEnhancer {
   /**
    * Queue message for email notification
    */
-  async queueForEmail(messageData) {
+  queueForEmail = async (messageData) => {
     try {
       // For now, just log the email queuing
       // TODO: Implement actual email queuing service
@@ -293,7 +293,7 @@ class ForwardingEnhancer {
   /**
    * Update message queue status
    */
-  async updateMessageStatus(messageId, status, failureReason = null) {
+  updateMessageStatus = async (messageId, status, failureReason = null) => {
     try {
       const updateData = {
         status: status,
@@ -322,7 +322,7 @@ class ForwardingEnhancer {
   /**
    * Retry failed message delivery
    */
-  async retryMessage(messageId) {
+  retryMessage = async (messageId) => {
     try {
       // Get message from queue
       const { data: message, error } = await this.supabase
