@@ -552,7 +552,6 @@ class TelegramMonitor {
             await this.bot.sendMessage(chatId, '❌ Failed to fetch destinations.', { parse_mode: 'HTML' });
         }
     });
-  }
 
     this.bot.onText(/^\/language\b/i, async (msg) => { 
       try { 
