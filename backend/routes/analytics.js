@@ -7,6 +7,8 @@ const DestinationService = require('../services/DestinationService');
 const KeywordService = require('../services/KeywordService');
 const supabase = require('../database/supabase');
 
+const loggingService = new LoggingService();
+
 // GET /api/analytics/stats - Get comprehensive analytics stats
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
