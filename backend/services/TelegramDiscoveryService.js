@@ -266,6 +266,5 @@ class TelegramDiscoveryService {
         return promoted;
     }
 }
-}
 
 module.exports = TelegramDiscoveryService;
