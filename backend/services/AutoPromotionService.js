@@ -1,4 +1,5 @@
 const winston = require('winston');
+const crypto = require('crypto'); // Moved to top
 
 // Configure logger
 const logger = winston.createLogger({
@@ -149,7 +150,7 @@ class AutoPromotionService {
           onConflict: 'user_id,channel_url',
           ignoreDuplicates: false
         })
-        .select('*');
+        .select();
 
       if (insertError) {
         logger.error(`Error upserting channel for ${chat_id}:`, insertError.message);
@@ -217,7 +218,7 @@ class AutoPromotionService {
 
       // Create default destination for user
       const destinationData = {
-        id: require('crypto').randomUUID(),
+        id: crypto.randomUUID(),
         user_id: userId,
         name: 'Auto-created Default',
         type: 'private_chat',
