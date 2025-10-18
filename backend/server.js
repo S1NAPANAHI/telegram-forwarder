@@ -42,12 +42,7 @@ console.log(`🌐 CORS allowed origins: ${allowedOrigins.join(', ')}`);
 // Basic middleware
 app.use(helmet());
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    console.warn(`❌ CORS blocked origin: ${origin}`);
-    return callback(new Error('CORS policy violation'), false);
-  },
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']

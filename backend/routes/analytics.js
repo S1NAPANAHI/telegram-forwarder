@@ -8,6 +8,11 @@ const KeywordService = require('../services/KeywordService');
 const supabase = require('../database/supabase');
 
 const loggingService = new LoggingService();
+const channelService = new ChannelService();
+const destinationService = new DestinationService();
+const keywordService = new KeywordService();
+
+
 
 // GET /api/analytics/stats - Get comprehensive analytics stats
 router.get('/stats', authMiddleware, async (req, res) => {
@@ -23,11 +28,11 @@ router.get('/stats', authMiddleware, async (req, res) => {
       keywords,
       successStats
     ] = await Promise.all([
-      LoggingService.getLogsCountForUser(userId),
-      LoggingService.getForwardedMessagesToday(userId),
-      ChannelService.getUserChannels(userId, false), // Get all channels
-      DestinationService.getUserDestinations(userId, false), // Get all destinations
-      KeywordService.getUserKeywords(userId, false), // Get all keywords
+      loggingService.getLogsCountForUser(userId),
+      loggingService.getForwardedMessagesToday(userId),
+      channelService.getUserChannels(userId, false), // Get all channels
+      destinationService.getUserDestinations(userId, false), // Get all destinations
+      keywordService.getUserKeywords(userId, false), // Get all keywords
       getSuccessStats(userId)
     ]);
 
@@ -59,7 +64,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
 router.get('/activity', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const activity = await LoggingService.getForwardingActivityLast7Days(userId);
+    const activity = await loggingService.getForwardingActivityLast7Days(userId);
     
     // Ensure we have data for all 7 days
     const last7Days = {};
