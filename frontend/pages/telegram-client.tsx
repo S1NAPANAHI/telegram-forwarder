@@ -26,7 +26,7 @@ const TelegramClientPage = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries('telegramClientStatus');
+      queryClient.invalidateQueries({ queryKey: ['telegramClientStatus'] });
     },
   });
 
@@ -47,7 +47,7 @@ const TelegramClientPage = () => {
     },
     onSuccess: () => {
       setShowCodeInput(false);
-      queryClient.invalidateQueries('telegramClientStatus');
+      queryClient.invalidateQueries({ queryKey: ['telegramClientStatus'] });
     },
   });
 
@@ -57,7 +57,7 @@ const TelegramClientPage = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries('telegramClientStatus');
+      queryClient.invalidateQueries({ queryKey: ['telegramClientStatus'] });
     },
   });
 
