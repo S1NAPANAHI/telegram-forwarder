@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/router';
 
 type Language = 'fa' | 'en';
@@ -11,6 +11,7 @@ interface LanguageContextType {
   toggleLanguage: () => void;
   formatNumber: (num: number) => string;
   formatDate: (date: Date) => string;
+  isLoading: boolean;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -21,29 +22,13 @@ interface LanguageProviderProps {
 
 // Persian number mapping
 const persianNumbers: { [key: string]: string } = {
-  '0': '۰',
-  '1': '۱',
-  '2': '۲',
-  '3': '۳',
-  '4': '۴',
-  '5': '۵',
-  '6': '۶',
-  '7': '۷',
-  '8': '۸',
-  '9': '۹'
+  '0': '۰', '1': '۱', '2': '۲', '3': '۳', '4': '۴',
+  '5': '۵', '6': '۶', '7': '۷', '8': '۸', '9': '۹'
 };
 
 const englishNumbers: { [key: string]: string } = {
-  '۰': '0',
-  '۱': '1',
-  '۲': '2',
-  '۳': '3',
-  '۴': '4',
-  '۵': '5',
-  '۶': '6',
-  '۷': '7',
-  '۸': '8',
-  '۹': '9'
+  '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+  '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9'
 };
 
 // Utility functions
@@ -55,11 +40,10 @@ const toEnglishNumbers = (str: string): string => {
   return str.replace(/[۰-۹]/g, (digit) => englishNumbers[digit] || digit);
 };
 
-// Date formatting for different locales
+// Improved date formatting
 const formatDateForLocale = (date: Date, locale: string): string => {
   try {
     if (locale === 'fa') {
-      // Persian date formatting
       const options: Intl.DateTimeFormatOptions = {
         year: 'numeric',
         month: 'long',
@@ -69,7 +53,6 @@ const formatDateForLocale = (date: Date, locale: string): string => {
       const formatted = new Intl.DateTimeFormat('fa-IR-u-nu-latn', options).format(date);
       return toPersianNumbers(formatted);
     } else {
-      // English date formatting
       const options: Intl.DateTimeFormatOptions = {
         year: 'numeric',
         month: 'long',
@@ -88,6 +71,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   const router = useRouter();
   const [language, setLanguageState] = useState<Language>('fa');
   const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Initialize language from localStorage or router locale
   useEffect(() => {
@@ -97,68 +81,96 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       const initialLanguage = savedLanguage || routerLanguage || 'fa';
       setLanguageState(initialLanguage);
       setMounted(true);
+      
+      // Apply initial direction without animation
+      applyDirectionImmediate(initialLanguage);
     }
   }, [router.locale]);
 
-  // Update document direction and lang attribute when language changes
-  useEffect(() => {
-    if (mounted && typeof document !== 'undefined') {
-      const direction = language === 'fa' ? 'rtl' : 'ltr';
+  // Immediate direction application without transitions
+  const applyDirectionImmediate = useCallback((lang: Language) => {
+    if (typeof document !== 'undefined') {
+      const direction = lang === 'fa' ? 'rtl' : 'ltr';
+      const isRTLLang = direction === 'rtl';
       
-      // Update document direction
+      // Disable transitions temporarily
+      document.documentElement.style.transition = 'none';
+      document.body.style.transition = 'none';
+      
+      // Apply direction changes
       document.documentElement.dir = direction;
-      document.documentElement.lang = language;
+      document.documentElement.lang = lang;
+      document.documentElement.setAttribute('data-direction', direction);
       
-      // Update body attributes for better styling
+      // Update body attributes
       document.body.setAttribute('dir', direction);
-      document.body.setAttribute('lang', language);
+      document.body.setAttribute('lang', lang);
       
-      // Add/remove RTL class for additional styling support
-      if (language === 'fa') {
-        document.body.classList.add('rtl');
-        document.body.classList.remove('ltr');
-      } else {
-        document.body.classList.add('ltr');
-        document.body.classList.remove('rtl');
-      }
+      // Update classes
+      document.documentElement.classList.toggle('rtl', isRTLLang);
+      document.documentElement.classList.toggle('ltr', !isRTLLang);
+      document.body.classList.toggle('rtl', isRTLLang);
+      document.body.classList.toggle('ltr', !isRTLLang);
       
-      // Update CSS custom property for font family
+      // Update CSS custom properties for font family
       document.documentElement.style.setProperty(
         '--font-family', 
-        language === 'fa' 
-          ? "'Vazirmatn', 'Tahoma', 'Arial', sans-serif"
+        lang === 'fa' 
+          ? "'IRANSansX', 'Shabnam', 'Vazirmatn', 'Tahoma', 'Arial', sans-serif"
           : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif"
       );
+      
+      // Re-enable transitions after a brief delay
+      setTimeout(() => {
+        document.documentElement.style.transition = '';
+        document.body.style.transition = '';
+      }, 50);
     }
-  }, [language, mounted]);
+  }, []);
 
-  const setLanguage = (newLanguage: Language) => {
-    setLanguageState(newLanguage);
+  // Enhanced setLanguage with loading state
+  const setLanguage = useCallback(async (newLanguage: Language) => {
+    if (newLanguage === language || isLoading) return;
     
-    // Save to localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('language', newLanguage);
-    }
+    setIsLoading(true);
     
-    // Update Next.js router locale if it's different
-    if (router.locale !== newLanguage) {
-      router.push(router.pathname, router.asPath, { locale: newLanguage });
+    try {
+      // Apply direction immediately
+      applyDirectionImmediate(newLanguage);
+      
+      // Update state
+      setLanguageState(newLanguage);
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('language', newLanguage);
+      }
+      
+      // Update Next.js router locale if different
+      if (router.locale !== newLanguage) {
+        await router.push(router.pathname, router.asPath, { locale: newLanguage });
+      }
+      
+    } catch (error) {
+      console.error('Failed to change language:', error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [language, isLoading, router, applyDirectionImmediate]);
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     const newLanguage = language === 'fa' ? 'en' : 'fa';
     setLanguage(newLanguage);
-  };
+  }, [language, setLanguage]);
 
-  const formatNumber = (num: number): string => {
+  const formatNumber = useCallback((num: number): string => {
     const numStr = num.toLocaleString();
     return language === 'fa' ? toPersianNumbers(numStr) : numStr;
-  };
+  }, [language]);
 
-  const formatDate = (date: Date): string => {
+  const formatDate = useCallback((date: Date): string => {
     return formatDateForLocale(date, language);
-  };
+  }, [language]);
 
   const direction = language === 'fa' ? 'rtl' : 'ltr';
   const isRTL = direction === 'rtl';
@@ -170,7 +182,8 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     isRTL,
     toggleLanguage,
     formatNumber,
-    formatDate
+    formatDate,
+    isLoading
   };
 
   // Don't render until mounted to avoid hydration mismatch
@@ -193,34 +206,34 @@ export const useLanguage = (): LanguageContextType => {
   return context;
 };
 
-// Hook for getting direction-aware CSS classes
+// Enhanced direction-aware classes hook
 export const useDirectionClasses = () => {
   const { isRTL } = useLanguage();
   
   return {
     // Margin classes
-    ml: isRTL ? 'mr' : 'ml',
-    mr: isRTL ? 'ml' : 'mr',
+    ml: (value: string) => isRTL ? `mr-${value}` : `ml-${value}`,
+    mr: (value: string) => isRTL ? `ml-${value}` : `mr-${value}`,
     
     // Padding classes
-    pl: isRTL ? 'pr' : 'pl',
-    pr: isRTL ? 'pl' : 'pr',
+    pl: (value: string) => isRTL ? `pr-${value}` : `pl-${value}`,
+    pr: (value: string) => isRTL ? `pl-${value}` : `pr-${value}`,
     
     // Border classes
-    'border-l': isRTL ? 'border-r' : 'border-l',
-    'border-r': isRTL ? 'border-l' : 'border-r',
+    borderL: isRTL ? 'border-r' : 'border-l',
+    borderR: isRTL ? 'border-l' : 'border-r',
     
     // Text alignment
-    'text-left': isRTL ? 'text-right' : 'text-left',
-    'text-right': isRTL ? 'text-left' : 'text-right',
+    textLeft: isRTL ? 'text-right' : 'text-left',
+    textRight: isRTL ? 'text-left' : 'text-right',
     
-    // Float classes
-    'float-left': isRTL ? 'float-right' : 'float-left',
-    'float-right': isRTL ? 'float-left' : 'float-right',
+    // Position classes
+    left: (value: string) => isRTL ? `right-${value}` : `left-${value}`,
+    right: (value: string) => isRTL ? `left-${value}` : `right-${value}`,
     
     // Flex classes
-    'justify-start': isRTL ? 'justify-end' : 'justify-start',
-    'justify-end': isRTL ? 'justify-start' : 'justify-end',
+    justifyStart: isRTL ? 'justify-end' : 'justify-start',
+    justifyEnd: isRTL ? 'justify-start' : 'justify-end',
   };
 };
 
