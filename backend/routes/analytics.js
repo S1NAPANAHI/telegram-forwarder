@@ -18,9 +18,10 @@ const keywordService = new KeywordService();
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log(`[Analytics /stats] Fetching stats for user: ${userId}`);
 
     // Get counts in parallel
-    const [
+    const [ 
       totalMessages,
       todayMessages,
       channels,
@@ -35,6 +36,15 @@ router.get('/stats', authMiddleware, async (req, res) => {
       keywordService.getUserKeywords(userId, false), // Get all keywords
       getSuccessStats(userId)
     ]);
+
+    console.log(`[Analytics /stats] Data fetched:`, {
+      totalMessages,
+      todayMessages,
+      channels: Array.isArray(channels) ? `${channels.length} channels` : `channels is not an array: ${typeof channels}`,
+      destinations: Array.isArray(destinations) ? `${destinations.length} destinations` : `destinations is not an array: ${typeof destinations}`,
+      keywords: Array.isArray(keywords) ? `${keywords.length} keywords` : `keywords is not an array: ${typeof keywords}`,
+      successStats
+    });
 
     const activeChannels = channels.filter(c => c.is_active).length;
     const activeDestinations = destinations.filter(d => d.is_active).length;
