@@ -18,7 +18,7 @@ class DestinationService {
   async getUserDestinations(userId, activeOnly = true) {
     let query = supabase
       .from('destinations')
-      .select('id, user_id, type, platform, chat_id, name, is_active, settings') // Include settings for metadata
+      .select('id, user_id, type, platform, chat_id, name, is_active')
       .eq('user_id', userId);
     if (activeOnly) query = query.eq('is_active', true);
     const { data, error } = await query.order('created_at', { ascending: false });

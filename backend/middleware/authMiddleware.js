@@ -57,7 +57,7 @@ const authMiddleware = async (req, res, next) => {
     // Try database table lookup first
     let { data: user, error } = await supabase
       .from('users')
-      .select('id, email, username, telegram_id, first_name, last_name, role, language, is_active')
+      .select('id, email, username, telegram_id, first_name, last_name, language, is_active')
       .eq('id', decoded.userId)
       .single();
 
@@ -91,13 +91,12 @@ const authMiddleware = async (req, res, next) => {
               telegram_id: userData.telegram_id || null,
               first_name: userData.first_name || null,
               last_name: userData.last_name || null,
-              role: userData.role || 'user',
               language: userData.language || 'fa',
               is_active: userData.is_active !== false,
               created_at: new Date().toISOString(),
               last_login: new Date().toISOString()
             }, { onConflict: 'id' })
-            .select('id, email, username, telegram_id, first_name, last_name, role, language, is_active')
+            .select('id, email, username, telegram_id, first_name, last_name, language, is_active')
             .single();
 
           if (upsertError) {
