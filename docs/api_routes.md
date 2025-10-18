@@ -109,6 +109,14 @@ Manages the discovery of new Telegram chats.
 - **`POST /api/discovery/bulk-promote`**: Promote multiple chats to channels.
 - **`DELETE /api/discovery/:chatId`**: Remove a discovered chat.
 
+## Telegram Bot Commands
+
+This section outlines the commands available directly through the Telegram bot.
+
+- **`/discover`**: Scans for groups and channels the bot is a member of, determines admin status, and saves the chat information (including numeric ID) to the database. This command provides a summary of discovered chats.
+- **`/add_destination <@username|link|ID>`**: Adds a new forwarding destination. The bot automatically resolves the provided identifier (e.g., `@username`, `t.me/link`, or numeric ID) to a numeric chat ID and saves it. It also validates if the bot can send messages to the destination.
+- **`/destinations`**: Lists all configured forwarding destinations for the user, showing their names, numeric IDs, and platform.
+
 ## `autoPromote.js`
 
 Handles the automatic promotion of discovered chats.

@@ -11,28 +11,28 @@
 - **📡 Pull-Based Monitoring**: Periodic polling for channels without real-time access
 
 ### **Smart Discovery System**
-- **🔍 Auto-Discovery**: Automatically detect all chats where bot is member
-- **⚡ Admin Detection**: Real-time admin status checking and updates
-- **📊 Web Dashboard**: Manage discovered chats through intuitive web interface
-- **🚀 Bulk Operations**: Promote multiple chats to monitoring simultaneously
+- **🔍 Auto-Discovery**: Automatically detect all chats where bot is member, including admin status and numeric ID extraction.
+- **⚡ Admin Detection**: Real-time admin status checking and updates.
+- **📊 Web Dashboard**: Manage discovered chats through intuitive web interface.
+- **🚀 Bulk Operations**: Promote multiple chats to monitoring simultaneously.
 
 ### **Advanced Filtering & Forwarding**
-- **🎯 Keyword Matching**: Exact, contains, and regex pattern matching
-- **🔤 Case Sensitivity**: Optional case-sensitive matching
-- **📈 Analytics**: Comprehensive message forwarding statistics
-- **🎛️ Multiple Destinations**: Forward to multiple channels/chats
+- **🎯 Keyword Matching**: Exact, contains, and regex pattern matching.
+- **🔤 Case Sensitivity**: Optional case-sensitive matching.
+- **📈 Analytics**: Comprehensive message forwarding statistics.
+- **🎛️ Multiple Destinations**: Forward to multiple channels/chats with flexible input (e.g., @username, t.me/link, numeric ID).
 
 ### **Multi-Platform Support**
-- **💬 Telegram**: Full Bot API and Client API support
-- **🇮🇷 Eitaa**: Iranian messenger integration
-- **🌐 Websites**: RSS feeds and web scraping
-- **🔗 Extensible**: Easy to add new platforms
+- **💬 Telegram**: Full Bot API and Client API support.
+- **🇮🇷 Eitaa**: Iranian messenger integration.
+- **🌐 Websites**: RSS feeds and web scraping.
+- **🔗 Extensible**: Easy to add new platforms.
 
 ### **Web Dashboard**
-- **📱 Responsive Design**: Works on desktop and mobile
-- **🌍 Multi-Language**: English and Persian (Farsi) support
-- **🛡️ Authentication**: Secure JWT-based authentication
-- **⚙️ Configuration**: Complete bot configuration through web interface
+- **📱 Responsive Design**: Works on desktop and mobile.
+- **🌍 Multi-Language**: English and Persian (Farsi) support.
+- **🛡️ Authentication**: Secure JWT-based authentication.
+- **⚙️ Configuration**: Complete bot configuration through web interface, including managing discovered chats and forwarding destinations.
 
 ## 🚀 Quick Start
 
@@ -74,6 +74,7 @@
    ```sql
    -- Run the migration in your Supabase SQL editor
    -- File: backend/database/migrations/add_discovered_chats_table.sql
+   -- Also ensure to run the SQL for the 'discovered_chats' table provided in the documentation.
    ```
 
 5. **Start the application**
@@ -131,7 +132,9 @@ JWT_SECRET=your_jwt_secret
 ### **Telegram Commands**
 
 - `/start` - Initialize bot and show welcome message
-- `/discover` - **🔍 Scan all chats and detect admin status**
+- `/discover` - **🔍 Scan all chats, detect admin status, and extract numeric IDs.**
+- `/add_destination <@username|link|ID>` - **➕ Add a new forwarding destination with automatic ID resolution.**
+- `/destinations` - **📋 List all configured forwarding destinations.**
 - `/status` - Show bot status and monitored channels
 - `/webapp` - Open web management panel
 - `/menu` - Show quick action buttons
@@ -168,6 +171,7 @@ backend/
 │   ├── TelegramDiscoveryService.js  # Chat discovery engine
 │   ├── PullMonitoringService.js     # Pull-based monitoring
 │   ├── monitoringManager.js         # Universal monitoring manager
+│   ├── IDResolutionService.js       # Service for resolving chat identifiers to numeric IDs
 │   └── ...                # Other services
 ├── routes/                # API endpoints
 │   ├── discovery.js       # Discovery management API

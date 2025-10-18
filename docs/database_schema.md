@@ -92,7 +92,25 @@ Defines a source channel from which messages are monitored.
 - **`created_at`**: `TIMESTAMP WITH TIME ZONE` (Default: `NOW()`)
 - **`updated_at`**: `TIMESTAMP WITH TIME ZONE` (Default: `NOW()`)
 
-### 5. `destinations`
+### 5. `discovered_chats`
+
+Stores information about Telegram groups and channels discovered by the bot for a user, including bot's membership and admin status.
+
+- **`id`**: `UUID` (Primary Key, Default: `uuid_generate_v4()`)
+- **`user_id`**: `UUID` (Foreign Key to `users.id`, `ON DELETE CASCADE`)
+- **`chat_id`**: `VARCHAR(100)` (Not Null) - Numeric chat ID (can be negative for groups/channels).
+- **`chat_type`**: `VARCHAR(20)` (Not Null) - e.g., `private`, `group`, `supergroup`, `channel`.
+- **`chat_title`**: `VARCHAR(255)` - Human-readable title of the chat.
+- **`chat_username`**: `VARCHAR(100)` - `@username` if available.
+- **`is_admin`**: `BOOLEAN` (Default: `false`) - `true` if the bot is an administrator in this chat.
+- **`is_member`**: `BOOLEAN` (Default: `true`) - `true` if the bot is currently a member of this chat.
+- **`is_promoted`**: `BOOLEAN` (Default: `false`) - `true` if this chat has been auto-promoted to a monitored channel.
+- **`discovery_method`**: `VARCHAR(50)` - How the chat was discovered (e.g., `bot_api`, `updates_scan`, `passive`).
+- **`last_discovered`**: `TIMESTAMP WITH TIME ZONE` (Default: `NOW()`) - Timestamp of the last discovery.
+- **`created_at`**: `TIMESTAMP WITH TIME ZONE` (Default: `NOW()`)
+- **`updated_at`**: `TIMESTAMP WITH TIME ZONE` (Default: `NOW()`)
+
+### 6. `destinations`
 
 Specifies a target chat or channel where messages are forwarded.
 
