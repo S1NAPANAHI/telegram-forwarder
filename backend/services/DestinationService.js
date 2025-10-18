@@ -1,15 +1,11 @@
 const supabase = require('../database/supabase');
-
-function normalizeTelegramTarget(chatId) {
-  if (!chatId) return null;
-  const v = chatId.toString().trim();
-  if (/^-?\d+$/.test(v)) return v; // numeric id
-  if (v.startsWith('@')) return v;
-  if (/^[A-Za-z0-9_]{5,}$/i.test(v)) return '@' + v;
-  return v;
-}
+const IDResolutionService = require('./IDResolutionService');
 
 class DestinationService {
+  constructor() {
+    this.idResolver = new IDResolutionService();
+  }
+
   async addDestination(userId, destinationData) {
     const { data, error } = await supabase
       .from('destinations')
@@ -22,12 +18,12 @@ class DestinationService {
   async getUserDestinations(userId, activeOnly = true) {
     let query = supabase
       .from('destinations')
-      .select('id, user_id, type, platform, chat_id, name, is_active')
+      .select('id, user_id, type, platform, chat_id, name, is_active, settings') // Include settings for metadata
       .eq('user_id', userId);
     if (activeOnly) query = query.eq('is_active', true);
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
-    return (data || []).map(d => ({ ...d, chat_id: normalizeTelegramTarget(d.chat_id) }));
+    return data || [];
   }
 
   async deleteDestination(userId, destinationId) {
@@ -39,6 +35,81 @@ class DestinationService {
       .select();
     if (error) throw new Error(error.message);
     return data[0];
+  }
+
+  /**
+   * Add destination with automatic ID resolution
+   */
+  async addDestinationWithResolution(userId, input, name = null) {
+    try {
+      // Validate and resolve the destination
+      const validation = await this.idResolver.validateDestination(input);
+      
+      if (!validation.valid) {
+        throw new Error(`Invalid destination: ${validation.error}`);
+      }
+
+      const { chatInfo, canSend, botStatus } = validation;
+      
+      // Prepare destination data
+      const destinationData = {
+        type: 'chat',
+        platform: 'telegram',
+        chat_id: chatInfo.id, // This is now the numeric ID
+        name: name || chatInfo.title,
+        settings: { // Using 'settings' column for metadata
+          original_input: input,
+          chat_type: chatInfo.type,
+          username: chatInfo.username,
+          can_send: canSend,
+          bot_status: botStatus,
+          resolved_at: new Date().toISOString()
+        }
+      };
+
+      // Save to database
+      const destination = await this.addDestination(userId, destinationData);
+      
+      return {
+        success: true,
+        destination,
+        chatInfo,
+        warnings: validation.warning ? [validation.warning] : []
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Bulk validate destinations
+   */
+  async validateExistingDestinations(userId) {
+    const destinations = await this.getUserDestinations(userId, false);
+    const results = [];
+
+    for (const dest of destinations) {
+      try {
+        const validation = await this.idResolver.validateDestination(dest.chat_id);
+        results.push({
+          destination: dest,
+          validation,
+          needsUpdate: false
+        });
+      } catch (error) {
+        results.push({
+          destination: dest,
+          validation: { valid: false, error: error.message },
+          needsUpdate: true
+        });
+      }
+    }
+
+    return results;
   }
 }
 

@@ -313,6 +313,42 @@ INSERT INTO system_settings (key, value, description, is_public) VALUES
 ('enable_telegram_notifications', 'true', 'Enable Telegram notifications', false)
 ON CONFLICT (key) DO NOTHING;
 
+-- Discovered Chats table for bot's known groups/channels
+CREATE TABLE IF NOT EXISTS discovered_chats (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    chat_id VARCHAR(100) NOT NULL, -- Numeric chat ID (can be negative for groups/channels)
+    chat_type VARCHAR(20) NOT NULL, -- private, group, supergroup, channel
+    chat_title VARCHAR(255),
+    chat_username VARCHAR(100), -- @username if available
+    is_admin BOOLEAN DEFAULT false, -- True if bot is admin in this chat
+    is_member BOOLEAN DEFAULT true, -- True if bot is still a member of this chat
+    is_promoted BOOLEAN DEFAULT false, -- True if this chat has been auto-promoted to a monitored channel
+    discovery_method VARCHAR(50), -- e.g., 'bot_api', 'updates_scan', 'passive'
+    last_discovered TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, chat_id)
+);
+
+-- Create indexes for discovered_chats
+CREATE INDEX IF NOT EXISTS idx_discovered_chats_user_id ON discovered_chats(user_id);
+CREATE INDEX IF NOT EXISTS idx_discovered_chats_chat_id ON discovered_chats(chat_id);
+CREATE INDEX IF NOT EXISTS idx_discovered_chats_is_admin ON discovered_chats(is_admin);
+CREATE INDEX IF NOT EXISTS idx_discovered_chats_is_promoted ON discovered_chats(is_promoted);
+
+-- Add trigger for discovered_chats updated_at
+CREATE TRIGGER update_discovered_chats_updated_at BEFORE UPDATE ON discovered_chats
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add RLS policy for discovered_chats
+ALTER TABLE discovered_chats ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own discovered chats" ON discovered_chats
+    FOR ALL USING (auth.uid()::text = user_id::text);
+
+-- Comment on discovered_chats table
+COMMENT ON TABLE discovered_chats IS 'Chats (groups/channels) discovered by the bot for a user, including admin status.';
+
 -- Create views for common queries
 CREATE OR REPLACE VIEW active_user_stats AS
 SELECT 

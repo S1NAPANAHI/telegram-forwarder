@@ -141,6 +141,131 @@ class TelegramDiscoveryService {
         response += '\n💡 Manage these in your web dashboard.';
         return response;
     }
+
+    /**
+     * Discover chats using getUpdates method (more comprehensive)
+     */
+    async discoverChatsViaUpdates(userId, limit = 100) {
+        try {
+            const updates = await this.bot.getUpdates({
+                limit,
+                timeout: 0,
+                allowed_updates: ['message', 'channel_post', 'my_chat_member']
+            });
+            
+            const discoveredChats = new Map();
+            const me = await this.bot.getMe();
+            
+            for (const update of updates) {
+                const chat = this.extractChatFromUpdate(update);
+                if (chat && !discoveredChats.has(chat.id.toString())) {
+                    try {
+                        // Get admin status
+                        let isAdmin = false;
+                        try {
+                            const member = await this.bot.getChatMember(chat.id, me.id);
+                            isAdmin = ['administrator', 'creator'].includes(member.status);
+                        } catch (e) {
+                            isAdmin = false;
+                        }
+
+                        discoveredChats.set(chat.id.toString(), {
+                            user_id: userId,
+                            chat_id: chat.id.toString(),
+                            chat_type: chat.type,
+                            chat_title: chat.title || chat.first_name || 'Unnamed Chat',
+                            chat_username: chat.username || null,
+                            is_admin: isAdmin,
+                            discovery_method: 'updates_scan',
+                            last_discovered: new Date().toISOString()
+                        });
+                    } catch (error) {
+                        logger.warn(`Failed to process chat ${chat.id}:`, error.message);
+                    }
+                }
+            }
+
+            // Save discovered chats
+            if (discoveredChats.size > 0) {
+                const chatArray = Array.from(discoveredChats.values());
+                await this.saveDiscoveredChats(chatArray);
+                return chatArray;
+            }
+
+            return [];
+        } catch (error) {
+            logger.error('Discovery via updates failed:', error);
+            throw error;
+        }
+    }
+
+    extractChatFromUpdate(update) {
+        if (update.message?.chat) return update.message.chat;
+        if (update.channel_post?.chat) return update.channel_post.chat;
+        if (update.my_chat_member?.chat) return update.my_chat_member.chat;
+        return null;
+    }
+
+    async saveDiscoveredChats(chats) {
+        const supabase = require('../database/supabase');
+        
+        const { error } = await supabase
+            .from('discovered_chats')
+            .upsert(chats, {
+                onConflict: 'user_id,chat_id',
+                ignoreDuplicates: false
+            });
+            
+        if (error) {
+            logger.error('Failed to save discovered chats:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Auto-promote chats where bot is admin
+     */
+    async autoPromoteAdminChats(userId) {
+        const supabase = require('../database/supabase');
+        
+        // Get admin chats that aren't promoted yet
+        const { data: adminChats, error } = await supabase
+            .from('discovered_chats')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('is_admin', true)
+            .neq('is_promoted', true);
+            
+        if (error) throw error;
+        
+        const promoted = [];
+        for (const chat of adminChats || []) {
+            try {
+                // Add to monitored channels
+                await supabase.from('channels').insert({
+                    user_id: userId,
+                    channel_url: chat.chat_id,
+                    name: chat.chat_title,
+                    platform: 'telegram',
+                    is_active: true,
+                    monitoring_mode: 'webhook'
+                });
+
+                // Mark as promoted
+                await supabase
+                    .from('discovered_chats')
+                    .update({ is_promoted: true })
+                    .eq('id', chat.id);
+                    
+                promoted.push(chat);
+            } catch (error) {
+                logger.warn(`Failed to auto-promote chat ${chat.chat_title}:`, error.message);
+            }
+        }
+        
+        return promoted;
+    }
+}
 }
 
 module.exports = TelegramDiscoveryService;

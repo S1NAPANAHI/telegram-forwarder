@@ -7,6 +7,7 @@ const LoggingService = require('../services/LoggingService');
 const ChatDiscoveryService = require('../services/ChatDiscoveryService');
 const TelegramDiscoveryService = require('../services/TelegramDiscoveryService');
 const ForwardingEnhancer = require('../services/ForwardingEnhancer');
+const IDResolutionService = require('../services/IDResolutionService'); // Import new service
 const attachPassiveAutoPromote = require('./passiveAutoPromote');
 const { forwardMessage, checkDuplicate } = require('../services/forwardingService');
 const chatIdResolver = require('../utils/chatIdResolver');
@@ -19,7 +20,7 @@ const i18n = {
   en: {
     welcome: (name) => `🎉 Welcome to Telegram Forwarder Bot, ${name}!\n\nUse /help for all commands or visit the dashboard to configure.`,
     welcome_group: (name) => `🎉 Hi ${name}! I'm now monitoring this chat.\n\n📝 Dashboard: ${WEBAPP_URL}\n\nUse /help for commands.`,
-    help: '🆘 Help\n\n/start – Start\n/help – This help\n/status – Bot and your config status\n/webapp – Open management panel\n/menu – Quick actions\n/discover – Scan chats and admin status\n/language – Change language\n/ping – Test bot response',
+    help: '🆘 Help\n\n/start – Start\n/help – This help\n/status – Bot and your config status\n/webapp – Open management panel\n/menu – Quick actions\n/discover – Scan chats and admin status\n/language – Change language\n/ping – Test bot response\n/add_destination <@username|link|ID> - Add a forwarding destination\n/destinations - List your forwarding destinations',
     status: (count) => `📊 Bot Status\n\nMonitored Channels: ${count}\nUpdated: ${new Date().toLocaleString()}`,
     webapp: '🌐 Open the management Web App:',
     webapp_link: `🌐 Dashboard: ${WEBAPP_URL}`,
@@ -38,7 +39,7 @@ const i18n = {
   fa: {
     welcome: (name) => `🎉 به ربات فوروارد تلگرام خوش آمدی، ${name}!\n\nبرای تنظیمات از داشبورد استفاده کنید.`,
     welcome_group: (name) => `🎉 سلام ${name}! من الان این چت رو زیر نظر دارم.\n\n📝 داشبورد: ${WEBAPP_URL}\n\nبرای دستورات /help رو بزن.`,
-    help: '🆘 راهنما\n\n/start – شروع\n/help – این راهنما\n/status – وضعیت ربات و تنظیمات شما\n/webapp – باز کردن پنل مدیریت\n/menu – اقدامات سریع\n/discover – اسکن چت‌ها و سطح دسترسی ادمین\n/language – تغییر زبان\n/ping – تست پاسخ ربات',
+    help: '🆘 راهنما\n\n/start – شروع\n/help – این راهنما\n/status – وضعیت ربات و تنظیمات شما\n/webapp – باز کردن پنل مدیریت\n/menu – اقدامات سریع\n/discover – اسکن چت‌ها و سطح دسترسی ادمین\n/language – تغییر زبان\n/ping – تست پاسخ ربات\n/add_destination <@username|link|ID> - افزودن مقصد فوروارد\n/destinations - لیست مقصدهای فوروارد شما',
     status: (count) => `📊 وضعیت ربات\n\nکانال‌های تحت نظارت: ${count}\nبه‌روزرسانی: ${new Date().toLocaleString('fa-IR')}`,
     webapp: '🌐 پنل مدیریت را باز کن:',
     webapp_link: `🌐 داشبورد: ${WEBAPP_URL}`,
@@ -72,6 +73,17 @@ async function setUserLang(userId, lang) {
   } catch (e) {
     console.error('Error setting user language:', e.message);
   }
+}
+
+// Helper to get user's internal ID from Telegram ID
+async function getUserId(telegramId) {
+  if (!telegramId) return null;
+  let user = await UserService.getByTelegramId(telegramId);
+  if (!user) {
+    // If user doesn't exist, create a placeholder or handle as error
+    user = await UserService.createOrUpdateUser({ telegram_id: telegramId });
+  }
+  return user?.id;
 }
 
 // Get or create a default admin user for bot operations
@@ -428,77 +440,117 @@ class TelegramMonitor {
       } 
     });
 
-    this.bot.onText(/^\/discover\b(?:\s+(?<handle>@?[A-Za-z0-9_]+))?/i, async (msg, match) => {
-      try { 
-        const lang = await getUserLang(msg.from?.id); 
-        await this.bot.sendMessage(msg.chat.id, '🔍 Scanning known chats...'); 
+    this.bot.onText(/^\/discover\b/i, async (msg) => {
+      const userId = await getUserId(msg.from.id);
+      const chatId = msg.chat.id;
+      
+      if (!userId) {
+        await this.bot.sendMessage(chatId, '❌ Discovery failed. Please start a private chat with the bot first.');
+        return;
+      }
+
+      try {
+        await this.bot.sendMessage(chatId, '🔍 Scanning for chats...', { parse_mode: 'HTML' });
         
-        let user;
-        if (msg.from?.id) {
-          user = await UserService.getByTelegramId(msg.from.id); 
-          if (!user) { 
-            user = await UserService.createOrUpdateUser({ 
-              telegram_id: msg.from.id, 
-              username: msg.from.username, 
-              first_name: msg.from.first_name, 
-              last_name: msg.from.last_name, 
-              language: lang 
-            }); 
-          } 
-        } else {
-          console.warn('Cannot discover chats: msg.from.id is undefined.');
-          await this.bot.sendMessage(msg.chat.id, '❌ Discovery failed. Please try again from a private chat with the bot.');
+        // Run comprehensive discovery
+        const discovered = await this.telegramDiscoveryService.discoverChatsViaUpdates(userId);
+        const existing = await this.telegramDiscoveryService.getDiscoveredChats(userId);
+        
+        // Auto-promote admin chats
+        const promoted = await this.telegramDiscoveryService.autoPromoteAdminChats(userId);
+        
+        let response = this.telegramDiscoveryService.formatDiscoveryResponse(existing);
+        if (promoted.length > 0) {
+            response += `\n✅ Auto-promoted ${promoted.length} admin chats to monitoring.`;
+        }
+        
+        await this.bot.sendMessage(chatId, response, { parse_mode: 'HTML' });
+        
+      } catch (error) {
+          console.error('Discovery command error:', error);
+          await this.bot.sendMessage(chatId, '❌ Discovery failed. Please try again.', { parse_mode: 'HTML' });
+      }
+    });
+
+    // Add destination command
+    this.bot.onText(/^\/add_destination (.+)/, async (msg, match) => {
+        const userId = await getUserId(msg.from.id);
+        const chatId = msg.chat.id;
+        const input = match[1].trim();
+        
+        if (!userId) {
+          await this.bot.sendMessage(chatId, '❌ Failed to add destination. Please start a private chat with the bot first.');
           return;
         }
-        
-        const handle = match?.groups?.handle; 
-        if (handle) { 
-          const svc = this.telegramDiscoveryService; 
-          const chatId = svc.normalizeChatId(handle); 
-          try { 
-            const me = await this.bot.getMe(); 
-            const chat = await this.bot.getChat(chatId); 
-            const member = await this.bot.getChatMember(chatId, me.id).catch(() => ({ status: 'left' })); 
-            const isAdmin = ['administrator','creator'].includes(member.status); 
-            const supabase = require('../database/supabase'); 
+
+        try {
+            await this.bot.sendMessage(chatId, '🔍 Resolving destination...', { parse_mode: 'HTML' });
             
-            await supabase.from('discovered_chats').upsert({ 
-              user_id: user.id, 
-              chat_id: chatId.toString(), 
-              chat_type: chat.type, 
-              chat_title: chat.title || chat.first_name || 'Chat', 
-              chat_username: chat.username || null, 
-              is_admin: isAdmin,
-              is_member: true, 
-              discovery_method: 'bot_api', 
-              last_discovered: new Date().toISOString() 
-            }, { onConflict: 'user_id,chat_id' }); 
-          } catch (e) { 
-            console.warn('Handle probe failed:', e.message); 
-          } 
+            const destinationService = new DestinationService();
+            const result = await destinationService.addDestinationWithResolution(userId, input);
+            
+            if (result.success) {
+                let response = `✅ <b>Destination Added!</b>\n\n`;
+                response += `📌 <b>Name:</b> ${result.chatInfo.title}\n`;
+                response += `🆔 <b>ID:</b> <code>${result.chatInfo.id}</code>\n`;
+                response += `📱 <b>Type:</b> ${result.chatInfo.type}\n`;
+                
+                if (result.chatInfo.username) {
+                    response += `👤 <b>Username:</b> @${result.chatInfo.username}\n`;
+                }
+                
+                if (result.warnings.length > 0) {
+                    response += `\n⚠️ <b>Warnings:</b>\n`;
+                    result.warnings.forEach(warning => {
+                        response += `• ${warning}\n`;
+                    });
+                }
+                
+                await this.bot.sendMessage(chatId, response, { parse_mode: 'HTML' });
+            } else {
+                await this.bot.sendMessage(chatId, `❌ Failed to add destination: ${result.error}`, { parse_mode: 'HTML' });
+            }
+            
+        } catch (error) {
+            console.error('Add destination error:', error);
+            await this.bot.sendMessage(chatId, '❌ Failed to add destination. Please try again.', { parse_mode: 'HTML' });
         }
+    });
+
+    // List destinations command
+    this.bot.onText(/^\/destinations/, async (msg) => {
+        const userId = await getUserId(msg.from.id);
+        const chatId = msg.chat.id;
         
-        await this.telegramDiscoveryService.probeKnownChannels(user.id); 
-        const chats = await this.telegramDiscoveryService.getDiscoveredChats(user.id); 
-        const response = this.telegramDiscoveryService.formatDiscoveryResponse(chats); 
-        await this.bot.sendMessage(msg.chat.id, response, { parse_mode: 'HTML' }); 
-        
-        if (chats.length > 0) { 
-          const isPrivateChat = msg.chat.type === 'private';
-          const keyboard = { 
-            inline_keyboard: [[{ text: '🌐 Open Dashboard', web_app: { url: `${WEBAPP_URL}?tab=channels` } }]] 
-          }; 
-          
-          if (isPrivateChat) {
-            await this.bot.sendMessage(msg.chat.id, '💡 Visit your dashboard to configure monitoring for discovered chats:', { reply_markup: keyboard }); 
-          } else {
-            await this.bot.sendMessage(msg.chat.id, `💡 Visit your dashboard to configure monitoring:\n${WEBAPP_URL}?tab=channels`); 
-          }
+        if (!userId) {
+          await this.bot.sendMessage(chatId, '❌ Failed to fetch destinations. Please start a private chat with the bot first.');
+          return;
         }
-      } catch (e) { 
-        console.error('/discover error:', e?.message || e); 
-        await this.bot.sendMessage(msg.chat.id, '❌ Discovery failed. Please check bot permissions and try again.'); 
-      }
+
+        try {
+            const destinationService = new DestinationService();
+            const destinations = await destinationService.getUserDestinations(userId, false);
+            
+            if (destinations.length === 0) {
+                await this.bot.sendMessage(chatId, '📝 No destinations configured yet.\n\nUse /add_destination < @username|link|ID> to add one.', { parse_mode: 'HTML' });
+                return;
+            }
+            
+            let response = `📋 <b>Your Destinations (${destinations.length})</b>\n\n`;
+            
+            destinations.forEach((dest, index) => {
+                const status = dest.is_active ? '🟢' : '🔴';
+                response += `${status} <b>${dest.name}</b>\n`;
+                response += `   ID: <code>${dest.chat_id}</code>\n`;
+                response += `   Platform: ${dest.platform}\n\n`;
+            });
+            
+            await this.bot.sendMessage(chatId, response, { parse_mode: 'HTML' });
+            
+        } catch (error) {
+            console.error('List destinations error:', error);
+            await this.bot.sendMessage(chatId, '❌ Failed to fetch destinations.', { parse_mode: 'HTML' });
+        }
     });
 
     this.bot.onText(/^\/language\b/i, async (msg) => { 
