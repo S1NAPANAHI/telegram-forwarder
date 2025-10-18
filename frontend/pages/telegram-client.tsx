@@ -9,9 +9,12 @@ const TelegramClientPage = () => {
   const queryClient = useQueryClient();
   const [showCodeInput, setShowCodeInput] = useState(false);
 
-  const { data: status, isLoading } = useQuery('telegramClientStatus', async () => {
-    const { data } = await api.get('/api/telegram-client/status');
-    return data;
+  const { data: status, isLoading } = useQuery({
+    queryKey: ['telegramClientStatus'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/telegram-client/status');
+      return data;
+    },
   });
 
   const { register, handleSubmit, setValue } = useForm();
