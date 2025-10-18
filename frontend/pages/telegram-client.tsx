@@ -20,54 +20,46 @@ const TelegramClientPage = () => {
   const { register, handleSubmit, setValue } = useForm();
   const { register: registerCode, handleSubmit: handleSubmitCode } = useForm();
 
-  const saveCredentials = useMutation(
-    async (data: any) => {
+  const saveCredentials = useMutation({
+    mutationFn: async (data: any) => {
       const response = await api.post('/api/telegram-client/credentials', data);
       return response.data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('telegramClientStatus');
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries('telegramClientStatus');
+    },
+  });
 
-  const login = useMutation(
-    async () => {
+  const login = useMutation({
+    mutationFn: async () => {
       const response = await api.post('/api/telegram-client/login');
       return response.data;
     },
-    {
-      onSuccess: () => {
-        setShowCodeInput(true);
-      },
-    }
-  );
+    onSuccess: () => {
+      setShowCodeInput(true);
+    },
+  });
 
-  const submitCode = useMutation(
-    async (data: any) => {
+  const submitCode = useMutation({
+    mutationFn: async (data: any) => {
       const response = await api.post('/api/telegram-client/submit-code', data);
       return response.data;
     },
-    {
-      onSuccess: () => {
-        setShowCodeInput(false);
-        queryClient.invalidateQueries('telegramClientStatus');
-      },
-    }
-  );
+    onSuccess: () => {
+      setShowCodeInput(false);
+      queryClient.invalidateQueries('telegramClientStatus');
+    },
+  });
 
-  const disconnect = useMutation(
-    async () => {
+  const disconnect = useMutation({
+    mutationFn: async () => {
       const response = await api.post('/api/telegram-client/disconnect');
       return response.data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('telegramClientStatus');
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries('telegramClientStatus');
+    },
+  });
 
   const onSubmit = (data: any) => {
     saveCredentials.mutate(data);
