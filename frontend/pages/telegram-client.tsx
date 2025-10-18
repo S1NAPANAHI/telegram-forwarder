@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Layout from '../components/Layout';
-import { withAuth } from '../../lib/withAuth';
+import { withAuth } from '../lib/withAuth';
 import api from '../../lib/api';
 import { useState } from 'react';
 
