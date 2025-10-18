@@ -58,22 +58,37 @@ export default function DiscoveryPage() {
   const [promoting, setPromoting] = useState(false);
   const [stats, setStats] = useState<DiscoveryStats | null>(null);
 
+  const normalizeList = (raw: any): DiscoveredChat[] => {
+    if (Array.isArray(raw)) return raw as DiscoveredChat[];
+    if (Array.isArray(raw?.data)) return raw.data as DiscoveredChat[];
+    if (Array.isArray(raw?.items)) return raw.items as DiscoveredChat[];
+    if (Array.isArray(raw?.chats)) return raw.chats as DiscoveredChat[];
+    return [] as DiscoveredChat[];
+  };
+
   const fetchDiscoveredChats = async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await api.get('/api/discovery');
-      setDiscoveredChats(response.data || []);
-      calculateStats(response.data || []);
+      const list = normalizeList(response.data);
+      setDiscoveredChats(list);
+      calculateStats(list);
     } catch (err: any) {
       console.error('Error fetching discovered chats:', err);
       setError(err.response?.data?.error || 'Failed to load discovered chats');
+      setDiscoveredChats([]);
+      calculateStats([]);
     } finally {
       setLoading(false);
     }
   };
 
   const calculateStats = (chats: DiscoveredChat[]) => {
+    if (!Array.isArray(chats)) {
+      setStats({ total: 0, admin: 0, promoted: 0, channels: 0, groups: 0 });
+      return;
+    }
     const stats = {
       total: chats.length,
       admin: chats.filter(c => c.is_admin).length,
@@ -166,7 +181,7 @@ export default function DiscoveryPage() {
     setSelectedChats([]);
   };
 
-  const filteredChats = discoveredChats.filter(chat => {
+  const filteredChats = Array.isArray(discoveredChats) ? discoveredChats.filter(chat => {
     const query = searchQuery.toLowerCase();
     const matchesSearch = !query || 
       (chat.chat_title || '').toLowerCase().includes(query) ||
@@ -181,7 +196,7 @@ export default function DiscoveryPage() {
     const matchesType = filterType === 'all' || chat.chat_type === filterType;
     
     return matchesSearch && matchesStatus && matchesType;
-  });
+  }) : [];
 
   useEffect(() => {
     fetchDiscoveredChats();
@@ -302,7 +317,7 @@ export default function DiscoveryPage() {
                   
                   <select 
                     value={filterType} 
-                    onChange={(e) => setFilterType(e.target.value as any)}
+                    onChange={(e) => setFilterType(e.target.value as any)} 
                     className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="all">All Types</option>
@@ -340,7 +355,7 @@ export default function DiscoveryPage() {
             {/* Bulk Actions */}
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Showing {filteredChats.length} of {discoveredChats.length} chats
+                Showing {filteredChats.length} of {Array.isArray(discoveredChats) ? discoveredChats.length : 0} chats
               </div>
               <button
                 onClick={selectAllFiltered}
@@ -360,10 +375,10 @@ export default function DiscoveryPage() {
               </div>
             ) : filteredChats.length === 0 ? (
               <div className="p-8 text-center">
-                {discoveredChats.length === 0 ? (
+                {(!Array.isArray(discoveredChats) || discoveredChats.length === 0) ? (
                   <div>
                     <MagnifyingGlassIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No chats discovered yet</h3>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text:white mb-2">No chats discovered yet</h3>
                     <p className="text-gray-500 dark:text-gray-400 mb-4">
                       Run a discovery scan to find all chats where the bot is a member.
                     </p>
