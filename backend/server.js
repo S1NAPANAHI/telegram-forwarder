@@ -125,6 +125,7 @@ console.log('Loading optional routes...');
 loadRoute('/api/client-auth', './routes/clientAuth');
 loadRoute('/api/discovery', './routes/discovery');
 loadRoute('/api/monitoring', './routes/monitoring');
+loadRoute('/api/telegram-client', './routes/telegramClient.js');
 
 // 404 handler
 app.use((req, res) => {

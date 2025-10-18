@@ -20,7 +20,8 @@ import {
   ChevronDownIcon,
   MagnifyingGlassIcon,
   EyeIcon,
-  RssIcon
+  RssIcon,
+  CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation } from 'next-i18next';
 import Link from 'next/link';
@@ -97,6 +98,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: t('analytics'), href: '/analytics', icon: ChartBarIcon },
     { name: t('logs'), href: '/logs', icon: DocumentTextIcon },
     { name: t('settings'), href: '/settings', icon: CogIcon },
+    { name: 'Telegram Client', href: '/telegram-client', icon: CloudArrowUpIcon },
   ];
 
   const isCurrentPage = (href: string) => router.pathname === href;

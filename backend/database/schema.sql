@@ -442,3 +442,36 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION get_user_quota_usage IS 'Get current usage statistics for a user';
 
 -- Success! Database schema is now ready
+
+-- User-specific Telegram client credentials
+CREATE TABLE IF NOT EXISTS user_telegram_clients (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    api_id VARCHAR(255) NOT NULL,
+    api_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    phone_code_hash VARCHAR(255),
+    session TEXT,
+    is_active BOOLEAN DEFAULT false,
+    status VARCHAR(50) DEFAULT 'disconnected', -- disconnected, connecting, connected, error
+    last_error TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id)
+);
+
+-- Create indexes for user_telegram_clients
+CREATE INDEX IF NOT EXISTS idx_user_telegram_clients_user_id ON user_telegram_clients(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_telegram_clients_is_active ON user_telegram_clients(is_active);
+
+-- Add trigger for user_telegram_clients updated_at
+CREATE TRIGGER update_user_telegram_clients_updated_at BEFORE UPDATE ON user_telegram_clients
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add RLS policy for user_telegram_clients
+ALTER TABLE user_telegram_clients ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own telegram client" ON user_telegram_clients
+    FOR ALL USING (auth.uid() = user_id);
+
+-- Comment on user_telegram_clients table
+COMMENT ON TABLE user_telegram_clients IS 'Stores user-provided credentials for running a Telegram client session.';
