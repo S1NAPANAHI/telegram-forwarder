@@ -1,7 +1,7 @@
 // frontend/next-i18next.config.js
 const config = {
   i18n: {
-    locales: ['fa', 'en'],
+    locales: ['fa'],
     defaultLocale: 'fa',
     // removed localeDetection to satisfy next-i18next UserConfig types
   },

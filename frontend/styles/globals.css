@@ -4,7 +4,7 @@
 @tailwind utilities;
 
 /* Import Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @import url('https://cdn.jsdelivr.net/gh/rastikerdar/iransansx@v1.2.1/dist/font-face.css');
 @import url('https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css');
 @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
@@ -95,41 +95,26 @@
   html { font-size: 16px; scroll-behavior: smooth; }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-family: 'IRANSansX', 'Shabnam', 'Vazirmatn', sans-serif;
     background: linear-gradient(to bottom right, #f8fafc, #e2e8f0);
     color: var(--text-primary);
     line-height: 1.65;
-    font-feature-settings: 'cv11', 'ss01';
-    font-variation-settings: 'opsz' 32;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-    transition: all 0.3s ease;
-    min-height: 100vh;
-  }
-
-  .dark body { background: linear-gradient(to bottom right, #0f172a, #1e293b); }
-
-  /* Persian/Farsi Font Support */
-  body[dir='rtl'], [lang='fa'], .rtl {
-    font-family: 'IRANSansX', 'Shabnam', 'Vazirmatn', 'Tahoma', 'Arial', sans-serif;
     font-feature-settings: normal;
     font-variant-ligatures: normal;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     word-spacing: 0.02em;
     letter-spacing: 0.005em;
+    transition: all 0.3s ease;
+    min-height: 100vh;
     direction: rtl;
     text-align: right;
   }
 
-  /* English/LTR Support */
-  body[dir='ltr'], [lang='en'], .ltr {
-    direction: ltr;
-    text-align: left;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
+  .dark body { background: linear-gradient(to bottom right, #0f172a, #1e293b); }
+
+  /* Better typography for Persian */
+  .rtl h1, .rtl h2, .rtl h3, .rtl h4, .rtl h5, .rtl h6 { font-weight: 600; letter-spacing: -0.01em; }
 
   /* Better typography for Persian */
   .rtl h1, .rtl h2, .rtl h3, .rtl h4, .rtl h5, .rtl h6 { font-weight: 600; letter-spacing: -0.01em; }

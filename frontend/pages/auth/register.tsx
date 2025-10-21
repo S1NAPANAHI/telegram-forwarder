@@ -16,9 +16,6 @@ import {
   UserPlusIcon,
   ShieldCheckIcon,
   DevicePhoneMobileIcon,
-  LanguageIcon,
-  MoonIcon,
-  SunIcon,
   EnvelopeIcon,
   LockClosedIcon
 } from '@heroicons/react/24/outline';
@@ -39,74 +36,8 @@ export default function Register() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isDark, setIsDark] = useState(false);
-  const [currentLocale, setCurrentLocale] = useState('en');
-  const [emailValid, setEmailValid] = useState(false);
   const [step, setStep] = useState(1);
   const router = useRouter();
-
-  // Password requirements
-  const [passwordRequirements, setPasswordRequirements] = useState<PasswordRequirement[]>([
-    { text: t('passwordLength') || 'At least 8 characters', regex: /.{8,}/, met: false },
-    { text: t('passwordUppercase') || 'One uppercase letter', regex: /[A-Z]/, met: false },
-    { text: t('passwordLowercase') || 'One lowercase letter', regex: /[a-z]/, met: false },
-    { text: t('passwordNumber') || 'One number', regex: /\d/, met: false },
-    { text: t('passwordSpecial') || 'One special character', regex: /[!@#$%^&*(),.?":{}|<>]/, met: false },
-  ]);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const savedLocale = localStorage.getItem('locale') || router.locale || 'en';
-    
-    if (savedTheme === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    }
-    
-    setCurrentLocale(savedLocale);
-    
-    if (savedLocale === 'fa') {
-      document.body.setAttribute('dir', 'rtl');
-      document.body.classList.add('rtl');
-    } else {
-      document.body.setAttribute('dir', 'ltr');
-      document.body.classList.add('ltr');
-    }
-  }, [router.locale]);
-
-  // Validate email
-  useEffect(() => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setEmailValid(emailRegex.test(email));
-  }, [email]);
-
-  // Check password requirements
-  useEffect(() => {
-    setPasswordRequirements(prev => 
-      prev.map(req => ({
-        ...req,
-        met: req.regex.test(password)
-      }))
-    );
-  }, [password]);
-
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-    if (!isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
-
-  const toggleLanguage = () => {
-    const newLocale = currentLocale === 'en' ? 'fa' : 'en';
-    setCurrentLocale(newLocale);
-    localStorage.setItem('locale', newLocale);
-    router.push(router.pathname, router.pathname, { locale: newLocale });
-  };
 
   const allPasswordRequirementsMet = passwordRequirements.every(req => req.met);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
@@ -187,34 +118,7 @@ export default function Register() {
 
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
         
-        {/* Top Controls Bar */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute top-4 right-4 z-20 flex items-center space-x-3 rtl:space-x-reverse"
-        >
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleLanguage}
-            className="p-2.5 bg-white/20 dark:bg-gray-800/20 backdrop-blur-md rounded-xl border border-white/10 shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            <LanguageIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-          </motion.button>
-          
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleTheme}
-            className="p-2.5 bg-white/20 dark:bg-gray-800/20 backdrop-blur-md rounded-xl border border-white/10 shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            {isDark ? (
-              <SunIcon className="w-5 h-5 text-yellow-400" />
-            ) : (
-              <MoonIcon className="w-5 h-5 text-gray-600" />
-            )}
-          </motion.button>
-        </motion.div>
+
 
         {/* Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
@@ -320,12 +224,12 @@ export default function Register() {
                   </div>
                   
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                    {t('createAccount') || 'Create Account'}
+                    {t('createAccount')}
                   </h1>
                   <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 leading-relaxed">
                     {step === 1 
-                      ? (t('enterEmailToStart') || 'Enter your email to get started')
-                      : (t('setupSecurePassword') || 'Set up a secure password')
+                      ? t('enterEmailToStart')
+                      : t('setupSecurePassword')
                     }
                   </p>
                 </motion.div>
@@ -344,7 +248,7 @@ export default function Register() {
                         {/* Email Input */}
                         <div>
                           <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            {t('email') || 'Email Address'}
+                            {t('email')}
                           </label>
                           <div className="relative">
                             <input
@@ -355,7 +259,7 @@ export default function Register() {
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
                               className="input-modern w-full text-base sm:text-sm pl-12"
-                              placeholder={t('enterYourEmail') || 'Enter your email'}
+                              placeholder={t('enterYourEmail')}
                               required
                             />
                             <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -371,7 +275,7 @@ export default function Register() {
                           </div>
                           {email && !emailValid && (
                             <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                              {t('pleaseEnterValidEmail') || 'Please enter a valid email address'}
+                              {t('pleaseEnterValidEmail')}
                             </p>
                           )}
                         </div>
@@ -385,7 +289,7 @@ export default function Register() {
                           disabled={!emailValid}
                           className="w-full btn-primary min-h-[48px] text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {t('continue') || 'Continue'}
+                          {t('continue')}
                         </motion.button>
                       </motion.div>
                     )}
@@ -402,7 +306,7 @@ export default function Register() {
                         {/* Password Input */}
                         <div>
                           <label htmlFor="password" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            {t('password') || 'Password'}
+                            {t('password')}
                           </label>
                           <div className="relative">
                             <input
@@ -413,7 +317,7 @@ export default function Register() {
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
                               className="input-modern w-full pr-12 text-base sm:text-sm"
-                              placeholder={t('enterYourPassword') || 'Create a password'}
+                              placeholder={t('enterYourPassword')}
                               required
                             />
                             <motion.button
@@ -436,7 +340,7 @@ export default function Register() {
                         {password && (
                           <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
                             <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                              {t('passwordRequirements') || 'Password Requirements:'}
+                              {t('passwordRequirements')}
                             </h4>
                             <div className="space-y-2">
                               {passwordRequirements.map((req, index) => (
@@ -468,7 +372,7 @@ export default function Register() {
                         {/* Confirm Password */}
                         <div>
                           <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            {t('confirmPassword') || 'Confirm Password'}
+                            {t('confirmPassword')}
                           </label>
                           <div className="relative">
                             <input
@@ -479,7 +383,7 @@ export default function Register() {
                               value={confirmPassword}
                               onChange={(e) => setConfirmPassword(e.target.value)}
                               className="input-modern w-full pr-12 text-base sm:text-sm"
-                              placeholder={t('confirmYourPassword') || 'Confirm your password'}
+                              placeholder={t('confirmYourPassword')}
                               required
                             />
                             <motion.button
@@ -507,7 +411,7 @@ export default function Register() {
                           </div>
                           {confirmPassword && !passwordsMatch && (
                             <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                              {t('passwordsDoNotMatch') || 'Passwords do not match'}
+                              {t('passwordsDoNotMatch')}
                             </p>
                           )}
                         </div>
@@ -521,7 +425,7 @@ export default function Register() {
                             onClick={handleBack}
                             className="flex-1 btn-secondary min-h-[48px] text-base font-semibold"
                           >
-                            {t('back') || 'Back'}
+                            {t('back')}
                           </motion.button>
                           
                           <motion.button
@@ -537,10 +441,10 @@ export default function Register() {
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                 </svg>
-                                {t('creating') || 'Creating...'}
+                                {t('creating')}
                               </div>
                             ) : (
-                              t('createAccount') || 'Create Account'
+                              t('createAccount')
                             )}
                           </motion.button>
                         </div>
@@ -584,12 +488,12 @@ export default function Register() {
                   className="mt-8 text-center"
                 >
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {t('alreadyHaveAccount') || 'Already have an account?'}{' '}
+                    {t('alreadyHaveAccount')}{' '}
                     <Link
                       href="/auth/login"
                       className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
                     >
-                      {t('signIn') || 'Sign in'}
+                      {t('signIn')}
                     </Link>
                   </p>
                 </motion.div>
@@ -604,21 +508,21 @@ export default function Register() {
               <div className="flex flex-col items-center p-4 bg-white/20 dark:bg-gray-800/20 backdrop-blur-md rounded-xl">
                 <DevicePhoneMobileIcon className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mb-2" />
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center">
-                  {t('mobileReady') || 'Mobile Ready'}
+                  {t('mobileReady')}
                 </span>
               </div>
               
               <div className="flex flex-col items-center p-4 bg-white/20 dark:bg-gray-800/20 backdrop-blur-md rounded-xl">
                 <ShieldCheckIcon className="w-8 h-8 text-green-600 dark:text-green-400 mb-2" />
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center">
-                  {t('secure') || 'Secure'}
+                  {t('secure')}
                 </span>
               </div>
               
               <div className="flex flex-col items-center p-4 bg-white/20 dark:bg-gray-800/20 backdrop-blur-md rounded-xl">
                 <ChatBubbleLeftRightIcon className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-2" />
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center">
-                  {t('realTime') || 'Real-time'}
+                  {t('realTime')}
                 </span>
               </div>
             </motion.div>
@@ -629,13 +533,13 @@ export default function Register() {
               className="mt-8 text-center"
             >
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                {t('byCreatingAccount') || 'By creating an account, you agree to our'}{' '}
+                {t('byCreatingAccount')}{' '}
                 <Link href="/terms" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors">
-                  {t('terms') || 'Terms of Service'}
+                  {t('terms')}
                 </Link>
-                {' '}{t('and') || 'and'}{' '}
+                {' '}{t('and')}{' '}
                 <Link href="/privacy" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors">
-                  {t('privacyPolicy') || 'Privacy Policy'}
+                  {t('privacyPolicy')}
                 </Link>
               </p>
             </motion.div>
@@ -648,6 +552,6 @@ export default function Register() {
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => ({
   props: {
-    ...(await serverSideTranslations(locale || 'en', ['common'])),
+    ...(await serverSideTranslations(locale || 'fa', ['common'])),
   },
 });

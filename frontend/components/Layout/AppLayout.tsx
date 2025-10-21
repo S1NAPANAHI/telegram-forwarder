@@ -187,7 +187,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
 
       {/* Desktop Sidebar */}
       <motion.div
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed lg:static inset-y-0 right-0 z-50 w-64 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -281,7 +281,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
             onClick={handleLogout}
             className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
           >
-            <ArrowRightOnRectangleIcon className="mr-3 h-5 w-5" />
+            <ArrowRightOnRectangleIcon className="ml-3 h-5 w-5" />
             {t('logout') || 'Logout'}
           </button>
         </div>
@@ -358,7 +358,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
                   <item.icon className="w-6 h-6" />
                   <span className="text-xs mt-1 font-medium">{item.name}</span>
                   {item.badge && (
-                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                    <span className="absolute -top-1 -left-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
                       {item.badge}
                     </span>
                   )}

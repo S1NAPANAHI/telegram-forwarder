@@ -101,10 +101,10 @@ export default function Login() {
               />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              {t('welcome') || 'Welcome'}
+              {t('welcome')}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              {t('loginToYourAccount') || 'Sign in to your account'}
+              {t('loginToYourAccount')}
             </p>
           </motion.div>
 
@@ -126,7 +126,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input-modern w-full"
-                placeholder={t('enterYourEmail') || 'Enter your email'}
+                placeholder={t('enterYourEmail')}
                 required
                 disabled={loading}
               />
@@ -149,7 +149,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input-modern w-full pr-12"
-                  placeholder={t('enterYourPassword') || 'Enter your password'}
+                  placeholder={t('enterYourPassword')}
                   required
                   disabled={loading}
                 />
@@ -202,7 +202,7 @@ export default function Login() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    {t('signingIn') || 'Signing in...'}
+                    {t('signingIn')}
                   </div>
                 ) : (
                   t('login')
@@ -225,7 +225,7 @@ export default function Login() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2 bg-white/80 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400 backdrop-blur-sm">
-                  {t('or') || 'or'}
+                  {t('or')}
                 </span>
               </div>
             </div>
@@ -238,12 +238,12 @@ export default function Login() {
               className="text-center"
             >
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {t('dontHaveAccount') || "Don't have an account?"}{' '}
+                {t('dontHaveAccount')}{' '}
                 <Link
                   href="/register"
                   className="font-medium text-telegram-600 hover:text-telegram-700 dark:text-telegram-400 dark:hover:text-telegram-300 transition-colors"
                 >
-                  {t('signUp') || 'Sign up'}
+                  {t('signUp')}
                 </Link>
               </p>
             </motion.div>
@@ -258,9 +258,9 @@ export default function Login() {
           className="mt-8 text-center"
         >
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('secureLoginPoweredBy') || 'Secure login powered by'}{' '}
+            {t('secureLoginPoweredBy')}{' '}
             <span className="text-gradient font-medium">
-              {t('telegramBot') || 'Telegram Bot'}
+              {t('telegramBot')}
             </span>
           </p>
         </motion.div>
