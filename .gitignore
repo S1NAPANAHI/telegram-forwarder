@@ -39,3 +39,4 @@ Thumbs.db
 
 # Frontend
 frontend/.next/
+frontend/package-lock.json
