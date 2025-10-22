@@ -1,28 +1,22 @@
+import { AppProps } from 'next/app';
+import { ThemeProvider } from '../components/ui/ThemeProvider';
 import '../styles/globals.css';
-import type { AppProps } from 'next/app';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '../context/AuthContext';
-import { LanguageProvider } from '../context/LanguageContext';
-import { appWithTranslation } from 'next-i18next';
-import i18nextConfig from '../next-i18next.config';
-import axios from 'axios';
+import Head from 'next/head';
 
-if (process.env.NEXT_PUBLIC_API_URL) {
-  axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL;
-}
-
-const queryClient = new QueryClient();
-
-function MyApp({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps }: AppProps) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <LanguageProvider>
-          <Component {...pageProps} />
-        </LanguageProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <>
+      <Head>
+        <title>Telegram Forwarder - Modern UI</title>
+        <meta name="description" content="Advanced Telegram message forwarding with modern interface" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+      </Head>
+      <ThemeProvider>
+        <Component {...pageProps} />
+      </ThemeProvider>
+    </>
   );
 }
-
-export default appWithTranslation(MyApp, i18nextConfig);
