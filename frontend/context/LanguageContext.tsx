@@ -13,6 +13,14 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+export const useLanguage = () => {
+  const context = useContext(LanguageContext);
+  if (context === undefined) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+};
+
 interface LanguageProviderProps {
   children: ReactNode;
 }
@@ -44,35 +52,6 @@ const formatDateForLocale = (date: Date): string => {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const router = useRouter();
   const language: Language = 'fa'; // Hardcode to Farsi
-
-  // Apply RTL direction immediately on mount
-  useEffect(() => {
-    const applyDirectionImmediate = () => {
-      if (typeof document !== 'undefined') {
-        document.documentElement.style.transition = 'none';
-        document.body.style.transition = 'none';
-
-        document.documentElement.dir = 'rtl';
-        document.documentElement.lang = 'fa';
-        document.documentElement.setAttribute('data-direction', 'rtl');
-
-        document.body.setAttribute('dir', 'rtl');
-        document.body.setAttribute('lang', 'fa');
-
-        document.documentElement.classList.add('rtl');
-        document.documentElement.classList.remove('ltr');
-        document.body.classList.add('rtl');
-        document.body.classList.remove('ltr');
-
-        // Re-enable transitions after a brief delay
-        setTimeout(() => {
-          document.documentElement.style.transition = '';
-          document.body.style.transition = '';
-        }, 0);
-      }
-    };
-    applyDirectionImmediate();
-  }, []);
 
   const formatNumber = useCallback((num: number): string => {
     const toPersianNumbers = (numStr: string): string => {

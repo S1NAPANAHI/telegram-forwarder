@@ -27,6 +27,7 @@ import { useTranslation } from 'next-i18next';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import LanguageSwitcher from '../components/ui/LanguageSwitcher';
 import { Menu, Transition } from '@headlessui/react';
 
 
@@ -435,12 +436,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       'left-0 origin-top-left'
                     )}>
                       <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {user?.username || t('user')}
-                        </p>
-                        </p>
-                      </div>
-                      <div className="py-2">
+                                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                      {user?.username || t('user')}
+                                                    </p>
+                                                  </div>                      <div className="py-2">
                         <Menu.Item>
                           {({ active }) => (
                             <button 

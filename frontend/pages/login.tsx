@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
@@ -18,6 +18,13 @@ export default function Login() {
   const router = useRouter();
   const { loginWithEmail } = useAuth();
   const next = typeof router.query.next === 'string' ? router.query.next : undefined;
+  const [frontendOrigin, setFrontendOrigin] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setFrontendOrigin(window.location.origin);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,7 +220,7 @@ export default function Login() {
             {/* Debug Info (remove after testing) */}
             {process.env.NODE_ENV === 'development' && (
               <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs font-mono">
-                <p>Frontend: {window.location.origin}</p>
+                <p>Frontend: {frontendOrigin || 'N/A'}</p>
                 <p>API: {process.env.NEXT_PUBLIC_API_URL}</p>
               </div>
             )}

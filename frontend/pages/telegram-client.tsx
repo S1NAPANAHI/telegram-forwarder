@@ -4,8 +4,12 @@ import Layout from '../components/Layout';
 import { withAuth } from '../lib/withAuth';
 import api from '../lib/api';
 import { useState } from 'react';
+import { useTranslation } from 'next-i18next';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import type { GetStaticProps } from 'next';
 
 const TelegramClientPage = () => {
+  const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   const [showCodeInput, setShowCodeInput] = useState(false);
 
@@ -83,22 +87,22 @@ const TelegramClientPage = () => {
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold mb-4">Telegram Client</h1>
+      <h1 className="text-2xl font-bold mb-4">{t('telegramClient')}</h1>
 
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">Status</h2>
-        <p>Status: {status?.status || 'Unknown'}</p>
-        <p>Phone: {status?.phone || 'Not set'}</p>
-        <p>Active: {status?.isActive ? 'Yes' : 'No'}</p>
-        {status?.lastError && <p className="text-red-500">Last Error: {status.lastError}</p>}
+        <h2 className="text-xl font-semibold mb-2">{t('status')}</h2>
+        <p>{t('status')}: {status?.status || t('unknown')}</p>
+        <p>{t('phone')}: {status?.phone || t('notSet')}</p>
+        <p>{t('active')}: {status?.isActive ? t('yes') : t('no')}</p>
+        {status?.lastError && <p className="text-red-500">{t('lastError')}: {status.lastError}</p>}
       </div>
 
       <div className="space-y-8">
         <div>
-          <h2 className="text-xl font-semibold mb-2">Configuration</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('configuration')}</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label htmlFor="apiId" className="block mb-1">API ID</label>
+              <label htmlFor="apiId" className="block mb-1">{t('apiId')}</label>
               <input
                 id="apiId"
                 type="text"
@@ -108,7 +112,7 @@ const TelegramClientPage = () => {
               />
             </div>
             <div>
-              <label htmlFor="apiHash" className="block mb-1">API Hash</label>
+              <label htmlFor="apiHash" className="block mb-1">{t('apiHash')}</label>
               <input
                 id="apiHash"
                 type="text"
@@ -117,7 +121,7 @@ const TelegramClientPage = () => {
               />
             </div>
             <div>
-              <label htmlFor="phone" className="block mb-1">Phone Number</label>
+              <label htmlFor="phone" className="block mb-1">{t('phoneNumber')}</label>
               <input
                 id="phone"
                 type="text"
@@ -127,29 +131,29 @@ const TelegramClientPage = () => {
               />
             </div>
             <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
-              Save Credentials
+              {t('saveCredentials')}
             </button>
           </form>
         </div>
 
         <div>
-          <h2 className="text-xl font-semibold mb-2">Connection</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('connection')}</h2>
           <div className="space-x-4">
             <button onClick={onLogin} className="px-4 py-2 bg-green-500 text-white rounded">
-              Login
+              {t('login')}
             </button>
             <button onClick={onDisconnect} className="px-4 py-2 bg-red-500 text-white rounded">
-              Disconnect
+              {t('disconnect')}
             </button>
           </div>
         </div>
 
         {showCodeInput && (
           <div>
-            <h2 className="text-xl font-semibold mb-2">Enter Phone Code</h2>
+            <h2 className="text-xl font-semibold mb-2">{t('enterPhoneCode')}</h2>
             <form onSubmit={handleSubmitCode(onSubmitCode)} className="space-y-4">
               <div>
-                <label htmlFor="code" className="block mb-1">Code</label>
+                <label htmlFor="code" className="block mb-1">{t('code')}</label>
                 <input
                   id="code"
                   type="text"
@@ -158,7 +162,7 @@ const TelegramClientPage = () => {
                 />
               </div>
               <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
-                Submit Code
+                {t('submitCode')}
               </button>
             </form>
           </div>
@@ -169,3 +173,9 @@ const TelegramClientPage = () => {
 };
 
 export default withAuth(TelegramClientPage);
+
+export const getStaticProps: GetStaticProps = async ({ locale }) => ({
+  props: {
+    ...(await serverSideTranslations(locale || 'en', ['common'])),
+  },
+});

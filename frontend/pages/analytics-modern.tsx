@@ -3,6 +3,9 @@ import { useRouter } from 'next/router';
 import ModernCard from '../components/ui/ModernCard';
 import { ThemeToggle } from '../components/ui/ThemeProvider';
 import { motion } from 'framer-motion';
+import Layout from '../components/Layout';
+import { useTranslation } from 'next-i18next';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 
 interface AnalyticsData {
   totalMessages: number;
@@ -28,6 +31,7 @@ interface AnalyticsData {
 
 const AnalyticsModern: React.FC = () => {
   const router = useRouter();
+  const { t } = useTranslation('common');
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     totalMessages: 0,
     successfulForwards: 0,
@@ -157,41 +161,10 @@ const AnalyticsModern: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-emerald-900 to-blue-900 p-6">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse animation-delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse animation-delay-2000"></div>
-      </div>
-
+    <Layout title={t('analyticsDashboard') || 'Analytics Dashboard'}>
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div 
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="flex justify-between items-center mb-8"
-        >
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              <span className="text-gradient">Analytics Dashboard</span>
-            </h1>
-            <p className="text-emerald-200 text-lg">Monitor your forwarding performance and insights</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => router.push('/dashboard-modern')}
-              className="btn-ghost flex items-center space-x-2"
-            >
-              <i className="fas fa-arrow-left"></i>
-              <span>Back</span>
-            </button>
-            <ThemeToggle />
-          </div>
-        </motion.div>
-
         {/* Time Range Selector */}
-        <motion.div 
+        <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
@@ -219,7 +192,7 @@ const AnalyticsModern: React.FC = () => {
           </ModernCard>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -306,17 +279,17 @@ const AnalyticsModern: React.FC = () => {
                 <div className="p-6 space-y-6">
                   <h3 className="text-xl font-semibold text-white">Performance Metrics</h3>
                   <div className="flex justify-around items-center h-48">
-                    <CircularProgress 
+                    <CircularProgress
                       percentage={parseFloat(successRate.toString())}
                       color="#10b981"
                       label="Success Rate"
                     />
-                    <CircularProgress 
+                    <CircularProgress
                       percentage={analyticsData.totalMessages > 0 ? ((analyticsData.failedForwards / analyticsData.totalMessages) * 100) : 0}
                       color="#ef4444"
                       label="Failure Rate"
                     />
-                    <CircularProgress 
+                    <CircularProgress
                       percentage={Math.min(100 - (analyticsData.averageResponseTime / 10), 100)}
                       color="#3b82f6"
                       label="Speed Index"
@@ -340,7 +313,7 @@ const AnalyticsModern: React.FC = () => {
                     View All
                   </button>
                 </div>
-                
+
                 {isLoading ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto mb-4"></div>
@@ -349,8 +322,8 @@ const AnalyticsModern: React.FC = () => {
                 ) : analyticsData.topChannels.length > 0 ? (
                   <div className="space-y-4">
                     {analyticsData.topChannels.map((channel, index) => (
-                      <motion.div 
-                        key={index} 
+                      <motion.div
+                        key={index}
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         transition={{ delay: index * 0.1 }}
@@ -385,7 +358,7 @@ const AnalyticsModern: React.FC = () => {
                     <p className="text-gray-400 mb-6">
                       No analytics data available for the selected time period.
                     </p>
-                    <button 
+                    <button
                       onClick={fetchAnalytics}
                       className="btn-modern"
                     >
@@ -399,8 +372,13 @@ const AnalyticsModern: React.FC = () => {
           </motion.div>
         </motion.div>
       </div>
-    </div>
+    </Layout>
   );
-};
+
+export const getStaticProps: GetStaticProps = async ({ locale }) => ({
+  props: {
+    ...(await serverSideTranslations(locale || 'en', ['common'])),
+  },
+});
 
 export default AnalyticsModern;

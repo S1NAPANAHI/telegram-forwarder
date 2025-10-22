@@ -163,5 +163,19 @@
   "export": "خروجی",
   "import": "ورودی",
   "backup": "پشتیبان‌گیری",
-  "restore": "بازیابی"
+  "restore": "بازیابی",
+  "telegramClient": "کلاینت تلگرام",
+  "phone": "تلفن",
+  "lastError": "آخرین خطا",
+  "configuration": "پیکربندی",
+  "apiId": "شناسه API",
+  "apiHash": "هش API",
+  "phoneNumber": "شماره تلفن",
+  "saveCredentials": "ذخیره اطلاعات کاربری",
+  "connection": "اتصال",
+  "enterPhoneCode": "کد تلفن را وارد کنید",
+  "code": "کد",
+  "submitCode": "ارسال کد",
+  "unknown": "ناشناخته",
+  "notSet": "تنظیم نشده"
 }

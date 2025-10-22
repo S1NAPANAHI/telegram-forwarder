@@ -5,7 +5,7 @@ import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
-import AppLayout from '../../components/Layout/AppLayout';
+import Layout from '../../components/Layout';
 import {
   ChatBubbleLeftRightIcon,
   MagnifyingGlassIcon,
@@ -224,7 +224,7 @@ export default function Dashboard() {
   };
 
   return (
-    <AppLayout title={t('dashboard') || 'Dashboard'}>
+    <Layout title={t('dashboard') || 'Dashboard'}>
       <Head>
         <title>{t('dashboard')} - {t('telegramForwarder')}</title>
         <meta name="description" content={t('dashboardDescription')} />
@@ -505,7 +505,7 @@ export default function Dashboard() {
           </motion.div>
         </div>
       </div>
-    </AppLayout>
+    </Layout>
   );
 }
 

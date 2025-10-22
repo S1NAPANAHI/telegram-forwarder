@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import Head from 'next/head'
-import { ModernNavigation } from '../components/layout/ModernNavigation'
 import { ModernCard } from '../components/ui/ModernCard'
 import { ModernButton } from '../components/ui/ModernButton'
 import { ModernInput } from '../components/ui/ModernInput'
@@ -19,6 +17,10 @@ import {
   DocumentIcon,
   SpeakerWaveIcon
 } from '@heroicons/react/24/outline'
+import Layout from '../components/Layout';
+import { useTranslation } from 'next-i18next';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import type { GetStaticProps } from 'next';
 
 interface Message {
   id: string
@@ -42,6 +44,7 @@ type MediaFilter = 'all' | 'text' | 'photo' | 'video' | 'document' | 'audio'
 type StatusFilter = 'all' | 'forwarded' | 'not-forwarded'
 
 export default function FeedModern() {
+  const { t } = useTranslation('common');
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -51,20 +54,20 @@ export default function FeedModern() {
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   const timeFilters = [
-    { key: 'all' as const, label: 'همه زمان' },
-    { key: 'last-hour' as const, label: 'ساعت گذشته' },
-    { key: 'today' as const, label: 'امروز' },
-    { key: 'yesterday' as const, label: 'دیروز' },
-    { key: 'week' as const, label: 'هفته گذشته' }
+    { key: 'all' as const, label: t('allTime') || 'همه زمان' },
+    { key: 'last-hour' as const, label: t('lastHour') || 'ساعت گذشته' },
+    { key: 'today' as const, label: t('today') || 'امروز' },
+    { key: 'yesterday' as const, label: t('yesterday') || 'دیروز' },
+    { key: 'week' as const, label: t('lastWeek') || 'هفته گذشته' }
   ]
 
   const mediaFilters = [
-    { key: 'all' as const, label: 'همه انواع', icon: null },
-    { key: 'text' as const, label: 'متن', icon: ChatBubbleLeftRightIcon },
-    { key: 'photo' as const, label: 'تصاویر', icon: PhotoIcon },
-    { key: 'video' as const, label: 'ویدیو', icon: VideoCameraIcon },
-    { key: 'document' as const, label: 'فایل', icon: DocumentIcon },
-    { key: 'audio' as const, label: 'صوت', icon: SpeakerWaveIcon }
+    { key: 'all' as const, label: t('allTypes') || 'همه انواع', icon: null },
+    { key: 'text' as const, label: t('text') || 'متن', icon: ChatBubbleLeftRightIcon },
+    { key: 'photo' as const, label: t('images') || 'تصاویر', icon: PhotoIcon },
+    { key: 'video' as const, label: t('video') || 'ویدیو', icon: VideoCameraIcon },
+    { key: 'document' as const, label: t('file') || 'فایل', icon: DocumentIcon },
+    { key: 'audio' as const, label: t('audio') || 'صوت', icon: SpeakerWaveIcon }
   ]
 
   useEffect(() => {
@@ -226,258 +229,255 @@ export default function FeedModern() {
   }
 
   return (
-    <>
-      <Head>
-        <title>خوراک پیام‌ها - تلگرام فوروارد</title>
-        <meta name="description" content="مشاهده و مدیریت پیام‌های دریافتی" />
-      </Head>
-
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        <ModernNavigation />
-        
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                خوراک پیام‌ها
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                مشاهدو و مدیریت تمام پیام‌های دریافتی
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="autoRefresh"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded"
-                />
-                <label htmlFor="autoRefresh" className="text-sm text-gray-600 dark:text-gray-400">
-                  به‌روزرسانی خودکار
-                </label>
-              </div>
-              <ModernButton variant="secondary" onClick={loadMessages}>
-                <ArrowPathIcon className="w-5 h-5 ml-2" />
-                به‌روزرسانی
-              </ModernButton>
-            </div>
+    <Layout title={t('messageFeed') || 'Message Feed'}>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              {t('messageFeed') || 'خوراک پیام‌ها'}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              {t('viewAndManageAllIncomingMessages') || 'مشاهدو و مدیریت تمام پیام‌های دریافتی'}
+            </p>
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="autoRefresh"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="rounded"
+              />
+              <label htmlFor="autoRefresh" className="text-sm text-gray-600 dark:text-gray-400">
+                {t('autoRefresh') || 'به‌روزرسانی خودکار'}
+              </label>
+            </div>
+            <ModernButton variant="secondary" onClick={loadMessages}>
+              <ArrowPathIcon className="w-5 h-5 ml-2" />
+              {t('refresh') || 'به‌روزرسانی'}
+            </ModernButton>
+          </div>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Filters Sidebar */}
-            <div className="space-y-6">
-              {/* Search */}
-              <ModernCard variant="glass">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  جستجو
-                </h3>
-                <ModernInput
-                  placeholder="جستجو در پیام‌ها..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  icon={<MagnifyingGlassIcon className="w-5 h-5" />}
-                />
-              </ModernCard>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Filters Sidebar */}
+          <div className="space-y-6">
+            {/* Search */}
+            <ModernCard variant="glass">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {t('search') || 'جستجو'}
+              </h3>
+              <ModernInput
+                placeholder={t('searchMessagesPlaceholder') || 'جستجو در پیام‌ها...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                icon={<MagnifyingGlassIcon className="w-5 h-5" />}
+              />
+            </ModernCard>
 
-              {/* Time Filter */}
-              <ModernCard variant="glass">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  زمان
-                </h3>
-                <div className="space-y-2">
-                  {timeFilters.map(filter => (
+            {/* Time Filter */}
+            <ModernCard variant="glass">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {t('time') || 'زمان'}
+              </h3>
+              <div className="space-y-2">
+                {timeFilters.map(filter => (
+                  <button
+                    key={filter.key}
+                    onClick={() => setTimeFilter(filter.key)}
+                    className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                      timeFilter === filter.key
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </ModernCard>
+
+            {/* Media Filter */}
+            <ModernCard variant="glass">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {t('contentType') || 'نوع محتوا'}
+              </h3>
+              <div className="space-y-2">
+                {mediaFilters.map(filter => {
+                  const Icon = filter.icon
+                  return (
                     <button
                       key={filter.key}
-                      onClick={() => setTimeFilter(filter.key)}
-                      className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
-                        timeFilter === filter.key
+                      onClick={() => setMediaFilter(filter.key)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                        mediaFilter === filter.key
                           ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                           : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
                       }`}
                     >
-                      {filter.label}
+                      {Icon && <Icon className="w-4 h-4" />}
+                      <span>{filter.label}</span>
                     </button>
-                  ))}
-                </div>
-              </ModernCard>
+                  )
+                })}
+              </div>
+            </ModernCard>
 
-              {/* Media Filter */}
-              <ModernCard variant="glass">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  نوع محتوا
-                </h3>
-                <div className="space-y-2">
-                  {mediaFilters.map(filter => {
-                    const Icon = filter.icon
-                    return (
-                      <button
-                        key={filter.key}
-                        onClick={() => setMediaFilter(filter.key)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
-                          mediaFilter === filter.key
-                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                            : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        {Icon && <Icon className="w-4 h-4" />}
-                        <span>{filter.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </ModernCard>
+            {/* Status Filter */}
+            <ModernCard variant="glass">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {t('forwardingStatus') || 'وضعیت فوروارد'}
+              </h3>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                    statusFilter === 'all'
+                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                      : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  {t('all') || 'همه'}
+                </button>
+                <button
+                  onClick={() => setStatusFilter('forwarded')}
+                  className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                    statusFilter === 'forwarded'
+                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                      : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  {t('forwarded') || 'فوروارد شده'}
+                </button>
+                <button
+                  onClick={() => setStatusFilter('not-forwarded')}
+                  className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                    statusFilter === 'not-forwarded'
+                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                      : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  {t('notForwarded') || 'فوروارد نشده'}
+                </button>
+              </div>
+            </ModernCard>
+          </div>
 
-              {/* Status Filter */}
-              <ModernCard variant="glass">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  وضعیت فوروارد
-                </h3>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setStatusFilter('all')}
-                    className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
-                      statusFilter === 'all'
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                        : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
-                    }`}
+          {/* Messages List */}
+          <div className="lg:col-span-3">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <LoadingSpinner size="lg" text={t('loadingMessages') || 'در حال بارگذاری پیام‌ها...'} />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredMessages.map((message, index) => (
+                  <ModernCard
+                    key={message.id}
+                    variant="glass"
+                    className="animate-slideUp hover-lift transition-all duration-300"
+                    style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
                   >
-                    همه
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter('forwarded')}
-                    className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
-                      statusFilter === 'forwarded'
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                        : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    فوروارد شده
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter('not-forwarded')}
-                    className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
-                      statusFilter === 'not-forwarded'
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                        : 'hover:bg-gray-100/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    فوروارد نشده
-                  </button>
-                </div>
-              </ModernCard>
-            </div>
-
-            {/* Messages List */}
-            <div className="lg:col-span-3">
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <LoadingSpinner size="lg" text="در حال بارگذاری پیام‌ها..." />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredMessages.map((message, index) => (
-                    <ModernCard
-                      key={message.id}
-                      variant="glass"
-                      className="animate-slideUp hover-lift transition-all duration-300"
-                      style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 mt-1">
-                          {getMediaIcon(message.mediaType)}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900 dark:text-white">
-                                {message.sourceChannel}
-                              </span>
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {message.sourceChannelUsername}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${getSentimentColor(message.sentiment)}`}>
-                                {getSentimentLabel(message.sentiment)}
-                              </span>
-                            </div>
-                            <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                              <ClockIcon className="w-4 h-4 ml-1" />
-                              {formatTime(message.timestamp)}
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 mt-1">
+                        {getMediaIcon(message.mediaType)}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {message.sourceChannel}
+                            </span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {message.sourceChannelUsername}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${getSentimentColor(message.sentiment)}`}>
+                              {getSentimentLabel(message.sentiment)}
                             </span>
                           </div>
-                          
-                          <p className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed">
-                            {message.content}
-                          </p>
-                          
-                          {message.mediaCount && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                              {message.mediaType === 'photo' && `${formatNumber(message.mediaCount)} تصویر`}
-                              {message.mediaType === 'video' && `${formatNumber(message.mediaCount)} ویدیو`}
-                              {message.mediaType === 'document' && `${formatNumber(message.mediaCount)} فایل`}
-                              {message.mediaType === 'audio' && `${formatNumber(message.mediaCount)} فایل صوتی`}
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center gap-4">
+                          <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                            <ClockIcon className="w-4 h-4 ml-1" />
+                            {formatTime(message.timestamp)}
+                          </span>
+                        </div>
+                        
+                        <p className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed">
+                          {message.content}
+                        </p>
+                        
+                        {message.mediaCount && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            {message.mediaType === 'photo' && `${formatNumber(message.mediaCount)} ${t('image')}`}
+                            {message.mediaType === 'video' && `${formatNumber(message.mediaCount)} ${t('video')}`}
+                            {message.mediaType === 'document' && `${formatNumber(message.mediaCount)} ${t('file')}`}
+                            {message.mediaType === 'audio' && `${formatNumber(message.mediaCount)} ${t('audioFile')}`}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-4">
+                            <span className="flex items-center gap-1">
+                              <EyeIcon className="w-4 h-4" />
+                              {formatNumber(message.views)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <ShareIcon className="w-4 h-4" />
+                              {formatNumber(message.forwards)}
+                            </span>
+                            {message.reactions && (
                               <span className="flex items-center gap-1">
-                                <EyeIcon className="w-4 h-4" />
-                                {formatNumber(message.views)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <ShareIcon className="w-4 h-4" />
-                                {formatNumber(message.forwards)}
-                              </span>
-                              {message.reactions && (
-                                <span className="flex items-center gap-1">
-                                  <HeartIcon className="w-4 h-4" />
-                                  {formatNumber(message.reactions)}
-                                </span>
-                              )}
-                            </div>
-                            
-                            {message.isForwarded && (
-                              <span className="px-2 py-1 bg-green-500/10 text-green-600 dark:text-green-400 rounded text-xs">
-                                فوروارد شده به {message.forwardedTo.length} مقصد
+                                <HeartIcon className="w-4 h-4" />
+                                {formatNumber(message.reactions)}
                               </span>
                             )}
                           </div>
                           
-                          {message.keywords.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-3">
-                              {message.keywords.map((keyword, keywordIndex) => (
-                                <span
-                                  key={keywordIndex}
-                                  className="px-2 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-xs"
-                                >
-                                  #{keyword}
-                                </span>
-                              ))}
-                            </div>
+                          {message.isForwarded && (
+                            <span className="px-2 py-1 bg-green-500/10 text-green-600 dark:text-green-400 rounded text-xs">
+                              {t('forwardedTo')} {message.forwardedTo.length} {t('destination')}
+                            </span>
                           )}
                         </div>
+                        
+                        {message.keywords.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-3">
+                            {message.keywords.map((keyword, keywordIndex) => (
+                              <span
+                                key={keywordIndex}
+                                className="px-2 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-xs"
+                              >
+                                #{keyword}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </ModernCard>
-                  ))}
-                  
-                  {filteredMessages.length === 0 && (
-                    <ModernCard variant="glass" className="text-center py-12">
-                      <ChatBubbleLeftRightIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 dark:text-gray-400">
-                        پیامی برای نمایش وجود ندارد
-                      </p>
-                    </ModernCard>
-                  )}
-                </div>
-              )}
-            </div>
+                    </div>
+                  </ModernCard>
+                ))}
+                
+                {filteredMessages.length === 0 && (
+                  <ModernCard variant="glass" className="text-center py-12">
+                    <ChatBubbleLeftRightIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {t('noMessagesToShow') || 'پیامی برای نمایش وجود ندارد'}
+                    </p>
+                  </ModernCard>
+                )}
+              </div>
+            )}
           </div>
-        </main>
-      </div>
-    </>
+        </div>
+      </main>
+    </Layout>
   )
 }
+
+export const getStaticProps: GetStaticProps = async ({ locale }) => ({
+  props: {
+    ...(await serverSideTranslations(locale || 'en', ['common'])),
+  },
+});

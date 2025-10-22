@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/router';
-import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { GetStaticProps } from 'next';
-import AppLayout from '../../components/Layout/AppLayout';
+import Layout from '../../components/Layout'; // Changed from AppLayout
 import {
   ChatBubbleLeftRightIcon,
   PlusIcon,
@@ -69,7 +68,7 @@ function ChannelCard({ channel, onToggleMonitoring, onEdit, onDelete }: ChannelC
     switch (status) {
       case 'online': return CheckCircleIcon;
       case 'error': return ExclamationTriangleIcon;
-      default: return XCircleIcon;
+      default: return ClockIcon;
     }
   };
 
@@ -412,55 +411,8 @@ export default function Channels() {
   };
 
   return (
-    <AppLayout title={t('channels') || 'Channels'}>
-      <Head>
-        <title>{t('channels')} - {t('telegramForwarder')}</title>
-        <meta name="description" content={t('channelsDescription')} />
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-      </Head>
-
+    <Layout title={t('channelManagement') || 'Channel Management'}>
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                {t('channelManagement') || 'Channel Management'}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                {t('channelSubtitle') || 'Monitor and manage your Telegram channels'}
-              </p>
-            </div>
-            
-            <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-              <Link href="/discovery">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="btn-secondary flex items-center space-x-2 rtl:space-x-reverse"
-                >
-                  <MagnifyingGlassIcon className="w-5 h-5" />
-                  <span className="hidden sm:inline">{t('discover') || 'Discover'}</span>
-                </motion.button>
-              </Link>
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowAddModal(true)}
-                className="btn-primary flex items-center space-x-2 rtl:space-x-reverse"
-              >
-                <PlusIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">{t('addChannel') || 'Add Channel'}</span>
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
-
         {/* Search and Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -608,7 +560,7 @@ export default function Channels() {
           )}
         </motion.div>
       </div>
-    </AppLayout>
+    </Layout>
   );
 }
 

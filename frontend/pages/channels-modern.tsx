@@ -3,6 +3,10 @@ import { useRouter } from 'next/router';
 import ModernCard from '../components/ui/ModernCard';
 import { ThemeToggle } from '../components/ui/ThemeProvider';
 import { motion, AnimatePresence } from 'framer-motion';
+import Layout from '../components/Layout';
+import { useTranslation } from 'next-i18next';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import type { GetStaticProps } from 'next';
 
 interface Channel {
   id: string;
@@ -18,6 +22,7 @@ interface Channel {
 
 const ChannelsModern: React.FC = () => {
   const router = useRouter();
+  const { t } = useTranslation('common');
   const [channels, setChannels] = useState<Channel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -131,31 +136,8 @@ const ChannelsModern: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 p-6">
-      {/* Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse animation-delay-1000"></div>
-      </div>
-
+    <Layout title={t('discoverChannels') || 'Discover Channels'}>
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Discover Channels</h1>
-            <p className="text-purple-200 text-lg">Find and connect to Telegram channels</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => router.push('/dashboard-modern')}
-              className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition-all duration-200"
-            >
-              ← Back to Dashboard
-            </button>
-            <ThemeToggle />
-          </div>
-        </div>
-
         {/* Search Section */}
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
@@ -248,8 +230,8 @@ const ChannelsModern: React.FC = () => {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-white truncate">{channel.title}</h3>
-                            <p className="text-gray-400 text-sm">@{channel.username}</p>
+                            <h3 className="text-lg font-semibold text-white truncate">@{channel.username}</h3>
+                            <p className="text-gray-400 text-sm">{channel.title}</p>
                           </div>
                           <div className="text-2xl">
                             {getCategoryIcon(channel.category)}
@@ -318,8 +300,14 @@ const ChannelsModern: React.FC = () => {
           )}
         </motion.div>
       </div>
-    </div>
+    </Layout>
   );
 };
+
+export const getStaticProps: GetStaticProps = async ({ locale }) => ({
+  props: {
+    ...(await serverSideTranslations(locale || 'en', ['common'])),
+  },
+});
 
 export default ChannelsModern;

@@ -8,6 +8,7 @@ import { useRouter } from 'next/router';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { InformationCircleIcon, ChartBarIcon, ClockIcon, KeyIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
+import Layout from '../components/Layout'; // Import the Layout component
 
 const apiClient = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL });
 
@@ -150,12 +151,13 @@ export default function DashboardOld() {
 
   const isLoading = isLoadingKeywords || isLoadingLogs || isLoadingChannels;
 
-  if (isLoading) return <div>{t('loadingKeywords')}</div>;
+  if (isLoading) return <Layout><div>{t('loadingKeywords')}</div></Layout>;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
+        {/* Header - This will be replaced by the Layout component's header */}
+        {/* <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">{t('dashboard')}</h1>
           <div>
             <button onClick={() => changeLanguage('en')} disabled={locale === 'en'} className="px-3 py-1 bg-gray-200 text-gray-700 rounded disabled:opacity-50 mr-2">English</button>
@@ -166,7 +168,7 @@ export default function DashboardOld() {
               </button>
             )}
           </div>
-        </div>
+        </div> */}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -263,7 +265,7 @@ export default function DashboardOld() {
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }
 
