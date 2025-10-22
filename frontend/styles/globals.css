@@ -6,12 +6,68 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
+/* Root Configuration */
 html {
   direction: rtl;
   font-family: 'Vazirmatn', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  scroll-behavior: smooth;
 }
 
-/* Custom Scrollbar */
+/* Language-specific configurations */
+html.rtl {
+  direction: rtl;
+}
+
+html.ltr {
+  direction: ltr;
+}
+
+/* Body language classes */
+body.persian {
+  font-family: 'Vazirmatn', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.8; /* Better line height for Persian text */
+}
+
+body.english {
+  font-family: 'Inter', 'Vazirmatn', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+}
+
+/* Persian Typography Improvements */
+.text-persian {
+  font-family: 'Vazirmatn', sans-serif;
+  direction: rtl;
+  line-height: 1.8;
+  letter-spacing: 0.02em;
+}
+
+/* Persian Numbers */
+.persian-numbers {
+  font-feature-settings: "locl";
+  direction: rtl;
+  font-variant-numeric: lining-nums;
+}
+
+/* RTL-specific improvements */
+.rtl {
+  text-align: right;
+}
+
+.ltr {
+  text-align: left;
+}
+
+/* RTL Flex utilities */
+.flex-rtl {
+  flex-direction: row-reverse;
+}
+
+.rtl .space-x-reverse > * + * {
+  margin-left: 0;
+  margin-right: var(--tw-space-x-reverse, 0.25rem);
+}
+
+/* Custom Scrollbar with RTL support */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -38,7 +94,7 @@ html {
   background: rgba(75, 85, 99, 0.5);
 }
 
-/* Modern Animations */
+/* Enhanced Animations */
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -73,6 +129,29 @@ html {
 }
 
 @keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* RTL-aware slide animations */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.rtl @keyframes slideInRight {
   from {
     opacity: 0;
     transform: translateX(-20px);
@@ -153,6 +232,19 @@ html {
   }
 }
 
+/* Language switcher animation */
+@keyframes languageSwitch {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(90deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+
 /* Animation Classes */
 .animate-slideUp {
   animation: slideUp 0.6s ease-out forwards;
@@ -168,6 +260,10 @@ html {
 
 .animate-slideRight {
   animation: slideRight 0.6s ease-out forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.6s ease-out forwards;
 }
 
 .animate-fadeIn {
@@ -199,6 +295,10 @@ html {
   animation: gradient 8s ease infinite;
 }
 
+.animate-languageSwitch {
+  animation: languageSwitch 0.6s ease-in-out;
+}
+
 /* Hover Effects */
 .hover-lift {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -217,7 +317,7 @@ html {
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
-/* Glassmorphism Effects */
+/* Enhanced Glassmorphism Effects */
 .glass {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(16px);
@@ -230,6 +330,14 @@ html {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.glass-persian {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
 }
 
 /* Gradient Borders */
@@ -273,6 +381,13 @@ html {
   background-size: 300% 300%;
 }
 
+.text-gradient-persian {
+  background: linear-gradient(135deg, #059669, #0d9488, #0891b2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* Button Hover Effects */
 .btn-hover-scale {
   transition: transform 0.2s ease;
@@ -284,6 +399,21 @@ html {
 
 .btn-hover-scale:active {
   transform: scale(0.98);
+}
+
+/* RTL-aware button effects */
+.btn-hover-slide {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-hover-slide:hover {
+  transform: translateX(-2px);
+}
+
+.rtl .btn-hover-slide:hover {
+  transform: translateX(2px);
 }
 
 /* Card Hover Effects */
@@ -321,7 +451,18 @@ html {
   }
 }
 
-/* Focus Styles */
+/* RTL-aware skeleton */
+.rtl .skeleton {
+  background: linear-gradient(-90deg, #f0f0f0 25%, transparent 37%, transparent 63%, #f0f0f0 75%);
+  background-size: 400% 100%;
+}
+
+.rtl.dark .skeleton {
+  background: linear-gradient(-90deg, #374151 25%, transparent 37%, transparent 63%, #374151 75%);
+  background-size: 400% 100%;
+}
+
+/* Focus Styles with RTL support */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
 }
@@ -330,13 +471,23 @@ html {
   @apply focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500;
 }
 
-/* Custom Radio and Checkbox */
+/* Enhanced focus for Persian UI */
+.focus-persian {
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500;
+}
+
+/* Custom Radio and Checkbox with RTL support */
 .radio-modern {
   @apply w-4 h-4 text-blue-600 bg-white border-gray-300 focus:ring-blue-500 focus:ring-2;
 }
 
 .checkbox-modern {
   @apply w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2;
+}
+
+/* Persian-specific form controls */
+.checkbox-persian {
+  @apply w-4 h-4 text-teal-600 bg-white border-gray-300 rounded focus:ring-teal-500 focus:ring-2;
 }
 
 /* Responsive Grid Auto-fit */
@@ -363,15 +514,18 @@ html {
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* Persian Number Support */
-.persian-numbers {
-  font-feature-settings: "locl";
-  direction: rtl;
+.transition-persian {
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /* Dark Mode Improvements */
 .dark {
   color-scheme: dark;
+}
+
+/* Persian Dark Mode */
+.dark.persian {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
 /* Print Styles */
@@ -388,6 +542,17 @@ html {
     box-shadow: none !important;
     text-shadow: none !important;
   }
+  
+  /* Ensure proper text direction in print */
+  .rtl {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  .ltr {
+    direction: ltr;
+    text-align: left;
+  }
 }
 
 /* High Contrast Mode Support */
@@ -400,6 +565,11 @@ html {
   .glass-dark {
     background: rgba(0, 0, 0, 0.9);
     border: 2px solid rgba(255, 255, 255, 0.8);
+  }
+  
+  .glass-persian {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(0, 0, 0, 0.9);
   }
 }
 
@@ -414,7 +584,8 @@ html {
   .animate-float,
   .animate-pulse,
   .animate-bounce,
-  .animate-spin {
+  .animate-spin,
+  .animate-languageSwitch {
     animation: none !important;
   }
 }
@@ -428,6 +599,10 @@ html {
   text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+.text-shadow-persian {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
 .backdrop-blur-xs {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -438,13 +613,7 @@ html {
   -webkit-backdrop-filter: blur(64px);
 }
 
-/* Persian Typography */
-.text-persian {
-  font-family: 'Vazirmatn', sans-serif;
-  direction: rtl;
-}
-
-/* Modern Form Elements */
+/* Modern Form Elements with RTL support */
 .form-input {
   @apply block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500;
 }
@@ -455,4 +624,138 @@ html {
 
 .form-textarea {
   @apply block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500;
+}
+
+/* Persian form elements */
+.form-input-persian {
+  @apply block w-full rounded-lg border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500;
+  font-family: 'Vazirmatn', sans-serif;
+  direction: rtl;
+  text-align: right;
+}
+
+.form-select-persian {
+  @apply block w-full rounded-lg border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500;
+  font-family: 'Vazirmatn', sans-serif;
+  direction: rtl;
+}
+
+.form-textarea-persian {
+  @apply block w-full rounded-lg border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500;
+  font-family: 'Vazirmatn', sans-serif;
+  direction: rtl;
+  text-align: right;
+  line-height: 1.8;
+}
+
+/* Language-specific spacing */
+.space-persian > * + * {
+  margin-right: 0.5rem;
+}
+
+.rtl .space-persian > * + * {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+
+/* Improved table RTL support */
+.table-rtl {
+  direction: rtl;
+}
+
+.table-rtl th:first-child {
+  border-top-right-radius: 0.5rem;
+  border-top-left-radius: 0;
+}
+
+.table-rtl th:last-child {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0;
+}
+
+/* Arabic/Persian number support */
+.numbers-persian {
+  font-variant-numeric: lining-nums;
+  font-feature-settings: "locl";
+}
+
+/* Enhanced Persian spacing */
+.leading-persian {
+  line-height: 1.8;
+}
+
+.tracking-persian {
+  letter-spacing: 0.02em;
+}
+
+/* Modal and overlay improvements for RTL */
+.modal-rtl {
+  direction: rtl;
+}
+
+.modal-rtl .modal-content {
+  text-align: right;
+}
+
+/* Toast notifications RTL support */
+.toast-rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Tooltip RTL positioning */
+.tooltip-rtl {
+  direction: rtl;
+}
+
+/* Navigation improvements */
+.nav-rtl {
+  direction: rtl;
+}
+
+.nav-rtl .nav-item {
+  margin-left: 1rem;
+  margin-right: 0;
+}
+
+/* Improved accessibility for Persian users */
+.sr-only-persian {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  direction: rtl;
+}
+
+/* Language indicator styles */
+.lang-indicator {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.3s ease;
+}
+
+.rtl .lang-indicator {
+  right: auto;
+  left: 1rem;
+}
+
+.dark .lang-indicator {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
 }
