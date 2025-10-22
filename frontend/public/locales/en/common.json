@@ -163,5 +163,22 @@
   "export": "Export",
   "import": "Import",
   "backup": "Backup",
-  "restore": "Restore"
+  "restore": "Restore",
+  "telegramForwarder": "Telegram Forwarder",
+  "loginPageDescription": "Sign in to your Telegram Forwarder account",
+  "loginToYourAccount": "Sign in to your account to continue",
+  "mobileOptimized": "Mobile Ready",
+  "secure": "Secure",
+  "smart": "Smart",
+  "signingIn": "Signing in...",
+  "signIn": "Sign In",
+  "forgotPassword": "Forgot your password?",
+  "or": "or",
+  "signUp": "Sign up",
+  "secureLoginPoweredBy": "Secure login powered by",
+  "privacy": "Privacy",
+  "terms": "Terms",
+  "help": "Help",
+  "enterYourEmail": "Enter your email",
+  "enterYourPassword": "Enter your password"
 }
