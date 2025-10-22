@@ -1,9 +1,9 @@
 // frontend/next-i18next.config.js
 const config = {
   i18n: {
-    locales: ['fa'],
+    locales: ['fa', 'en'],
     defaultLocale: 'fa',
-    // removed localeDetection to satisfy next-i18next UserConfig types
+    localeDetection: true,
   },
   ns: ['common'],
   defaultNS: 'common',
@@ -11,6 +11,20 @@ const config = {
     '*': ['common'],
   },
   reloadOnPrerender: false,
+  // Add support for locale-specific routing
+  localePath: './public/locales',
+  // Enable strict mode for better performance
+  strictMode: true,
+  // Enable saveMissing in development
+  saveMissing: process.env.NODE_ENV === 'development',
+  // Fallback language
+  fallbackLng: {
+    'fa': ['fa'],
+    'en': ['en', 'fa'],
+    'default': ['fa']
+  },
+  // Load namespaces for specific pages
+  nonExplicitSupportedLngs: true,
 };
 
 module.exports = config;
