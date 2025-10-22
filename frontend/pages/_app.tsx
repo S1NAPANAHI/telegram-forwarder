@@ -1,28 +1,50 @@
-import { AppProps } from 'next/app';
-import { ThemeProvider } from '../components/ui/ThemeProvider';
-import '../styles/globals.css';
-import Head from 'next/head';
-import { appWithTranslation } from 'next-i18next';
-import { RTLProvider } from '../components/ui/RTLProvider';
+import { useEffect } from 'react'
+import type { AppProps } from 'next/app'
+import { useRouter } from 'next/router'
+import { appWithTranslation } from 'next-i18next'
+import { AuthProvider } from '../context/AuthContext'
+import nextI18NextConfig from '../next-i18next.config.js'
+import '../styles/globals.css'
 
-function App({ Component, pageProps }: AppProps) {
+function MyApp({ Component, pageProps }: AppProps) {
+  const router = useRouter()
+  const { locale } = router
+
+  // Handle direction and language changes
+  useEffect(() => {
+    const isRTL = locale === 'fa'
+    const direction = isRTL ? 'rtl' : 'ltr'
+    
+    // Set document direction and lang
+    document.documentElement.dir = direction
+    document.documentElement.lang = locale || 'en'
+    document.documentElement.setAttribute('data-direction', direction)
+    
+    // Set body direction and classes
+    document.body.setAttribute('dir', direction)
+    document.body.setAttribute('lang', locale || 'en')
+    
+    // Update CSS classes for Tailwind RTL support
+    if (isRTL) {
+      document.documentElement.classList.add('rtl')
+      document.documentElement.classList.remove('ltr')
+      document.body.classList.add('rtl')
+      document.body.classList.remove('ltr')
+    } else {
+      document.documentElement.classList.add('ltr')
+      document.documentElement.classList.remove('rtl')
+      document.body.classList.add('ltr')
+      document.body.classList.remove('rtl')
+    }
+    
+    console.log(`Language changed to ${locale}, direction: ${direction}`)
+  }, [locale])
+
   return (
-    <>
-      <Head>
-        <title>Telegram Forwarder - Modern UI</title>
-        <meta name="description" content="Advanced Telegram message forwarding with modern interface" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-      </Head>
-      <RTLProvider>
-        <ThemeProvider>
-          <Component {...pageProps} />
-        </ThemeProvider>
-      </RTLProvider>
-    </>
-  );
+    <AuthProvider>
+      <Component {...pageProps} />
+    </AuthProvider>
+  )
 }
 
-export default appWithTranslation(App);
+export default appWithTranslation(MyApp, nextI18NextConfig)
