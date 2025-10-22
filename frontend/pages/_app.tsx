@@ -3,6 +3,7 @@ import { ThemeProvider } from '../components/ui/ThemeProvider';
 import '../styles/globals.css';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
+import { RTLProvider } from '../components/ui/RTLProvider';
 
 function App({ Component, pageProps }: AppProps) {
   return (
@@ -15,9 +16,11 @@ function App({ Component, pageProps }: AppProps) {
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </Head>
-      <ThemeProvider>
-        <Component {...pageProps} />
-      </ThemeProvider>
+      <RTLProvider>
+        <ThemeProvider>
+          <Component {...pageProps} />
+        </ThemeProvider>
+      </RTLProvider>
     </>
   );
 }
